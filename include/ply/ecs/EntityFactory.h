@@ -100,7 +100,7 @@ public:
     /// are being used
     ///
     ///////////////////////////////////////////////////////////
-    template <ComponentType... Cs, typename Func>
+    template <typename Func>
     std::vector<EntityId> create(Func&& onCreate, uint32_t num = 1);
 
 private:
@@ -112,6 +112,12 @@ private:
         uint32_t m_size;  //!< Size of component type
         uint32_t m_align; //!< Align of component type
     };
+    
+    ///////////////////////////////////////////////////////////
+    /// \brief Actual templated create implementation
+    ///////////////////////////////////////////////////////////
+    template <typename... Cs, typename Func>
+    std::vector<EntityId> templateCreateImpl(Func&& onCreate, uint32_t num, type_wrapper<std::tuple<Cs...>>);
 
     ///////////////////////////////////////////////////////////
     /// \brief Common create code

@@ -10,8 +10,7 @@
 namespace ply {
 
 ///////////////////////////////////////////////////////////
-template <ComponentType C>
-EntityFactory& EntityFactory::add(const C& component) {
+template <ComponentType C> EntityFactory& EntityFactory::add(const C& component) {
     CHECK_F(VALID_COMPONENT_TYPE(C), "component type %s is not valid", typeid(C).name());
 
     std::type_index tid = typeid(C);
@@ -36,14 +35,35 @@ EntityFactory& EntityFactory::add(const C& component) {
 }
 
 ///////////////////////////////////////////////////////////
-template <ComponentType... Cs, typename Func>
+template <typename Func>
 std::vector<EntityId> EntityFactory::create(Func&& onCreate, uint32_t num) {
     if (!m_components.size())
         return {};
 
     // Get first parameter type
-    using FirstParamType =
-        typename first_param<std::decay_t<decltype(onCreate)>>::type;
+    using FirstParamType = typename first_param<std::decay_t<decltype(onCreate)>>::type;
+
+    // Check if first parameter is a meta type (QueryIterator, EntityId, or integral)
+    constexpr bool HasMetaFirst = std::is_integral_v<FirstParamType>;
+
+    // Get component types from function parameters
+    // If first parameter is meta, use rest_param_types, otherwise use param_types
+    using CTypes = typename std::conditional_t<
+        HasMetaFirst,
+        typename rest_param_types<std::decay_t<decltype(onCreate)>>::type,
+        typename param_types<std::decay_t<decltype(onCreate)>>::type>;
+
+    return templateCreateImpl(
+        std::forward<Func>(onCreate), num, type_wrapper<decayed_tuple_t<CTypes>>{}
+    );
+}
+
+///////////////////////////////////////////////////////////
+template <typename... Cs, typename Func>
+std::vector<EntityId>
+EntityFactory::templateCreateImpl(Func&& onCreate, uint32_t num, type_wrapper<std::tuple<Cs...>>) {
+    // Get first parameter type
+    using FirstParamType = typename first_param<std::decay_t<decltype(onCreate)>>::type;
 
     // Check that the types the function needs are added to the entity
     {
@@ -51,22 +71,27 @@ std::vector<EntityId> EntityFactory::create(Func&& onCreate, uint32_t num) {
         PARAM_EXPAND(reqTypeIds.push_back(typeid(Cs)));
 
         for (size_t i = 0; i < reqTypeIds.size(); ++i)
-            CHECK_F(m_components.find(reqTypeIds[i]) != m_components.end(),
-                    "attempted to access a component that has not been added to "
-                    "entity: %s",
-                    reqTypeIds[i].name());
+            CHECK_F(
+                m_components.find(reqTypeIds[i]) != m_components.end(),
+                "attempted to access a component that has not been added to "
+                "entity: %s",
+                reqTypeIds[i].name()
+            );
     }
 
     // Create
     HashMap<std::type_index, void*> ptrs;
     std::vector<EntityId> ids = createImpl(num, ptrs);
 
+    // Create tuple bc it should be a little faster to access
+    Tuple<Cs*...> tuple((Cs*)ptrs.find(typeid(Cs)).value()...);
+
     // Call function for each instance
     for (uint32_t i = 0; i < num; ++i) {
         if constexpr (std::is_integral_v<FirstParamType>)
-            onCreate(i, reinterpret_cast<Cs*>(ptrs[typeid(Cs)])[i]...);
+            onCreate(i, tuple.template get<Cs*>()[i]...);
         else
-            onCreate(reinterpret_cast<Cs*>(ptrs[typeid(Cs)])[i]...);
+            onCreate(tuple.template get<Cs*>()[i]...);
     }
 
     // Send add event
