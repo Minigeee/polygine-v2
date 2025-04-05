@@ -1,0 +1,69 @@
+#pragma once
+
+#include <ply/core/Types.h>
+
+#include <cstdint>
+#include <typeindex>
+
+namespace ply {
+
+///////////////////////////////////////////////////////////
+/// \brief A class that can store a set of data types
+///
+///////////////////////////////////////////////////////////
+class TypeSet {
+   public:
+    ///////////////////////////////////////////////////////////
+    /// \brief Create a component type set
+    ///
+    /// \return A component type set containg the specified data types
+    ///
+    ///////////////////////////////////////////////////////////
+    template <typename... Cs>
+    static TypeSet create();
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Set the data types to include in the set
+    ///
+    ///////////////////////////////////////////////////////////
+    template <typename... Cs>
+    void set();
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Add data type to the set
+    ///
+    ///////////////////////////////////////////////////////////
+    template <typename C>
+    void add();
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Remove a data type from the set
+    ///
+    ///////////////////////////////////////////////////////////
+    template <typename C>
+    void remove();
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Check if a ceratin data type is in the set
+    ///
+    /// \return True if the specified data type is in the set
+    ///
+    ///////////////////////////////////////////////////////////
+    template <typename C>
+    bool has() const;
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Get a hash set containing type ids of the component type set
+    ///
+    /// \return A hash set
+    ///
+    ///////////////////////////////////////////////////////////
+    const HashSet<std::type_index>& getSet() const;
+
+   private:
+    HashSet<std::type_index> m_set;  //!< Hash set of type ids
+};
+
+}  // namespace ply
+
+#include <ply/core/TypeSet.inl>

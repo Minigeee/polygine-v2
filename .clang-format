@@ -1,0 +1,32 @@
+BasedOnStyle: LLVM
+UseTab: Never
+IndentWidth: 4
+TabWidth: 4
+BreakBeforeBraces: Attach
+AllowShortIfStatementsOnASingleLine: false
+IndentCaseLabels: false
+ColumnLimit: 100
+AccessModifierOffset: -4
+NamespaceIndentation: Inner
+FixNamespaceComments: false
+PointerAlignment: Left
+
+# Function parameter wrapping settings
+BinPackArguments: false
+BinPackParameters: false
+AlignAfterOpenBracket: BlockIndent
+AllowAllParametersOfDeclarationOnNextLine: false
+ExperimentalAutoDetectBinPacking: false
+
+# Ternary operator wrapping
+BreakBeforeTernaryOperators: true
+AlignOperands: false
+
+# Constructor initializer settings
+BreakConstructorInitializers: BeforeColon
+ConstructorInitializerIndentWidth: 4
+ConstructorInitializerAllOnOneLineOrOnePerLine: false
+PackConstructorInitializers: CurrentLine
+
+# Function body settings
+AllowShortFunctionsOnASingleLine: Empty
