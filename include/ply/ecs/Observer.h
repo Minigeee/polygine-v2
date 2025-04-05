@@ -41,7 +41,7 @@ public:
     /// \brief Add a type to the include type set
     ///
     ///////////////////////////////////////////////////////////
-    template <ComponentType C> Observer& match();
+    template <ComponentType... Cs> Observer& match();
 
     ///////////////////////////////////////////////////////////
     /// \brief Set the which component types should be excluded from the component query
@@ -55,7 +55,7 @@ public:
     /// \brief Add a type to the exclude type set
     ///
     ///////////////////////////////////////////////////////////
-    template <ComponentType C> Observer& exclude();
+    template <ComponentType... Cs> Observer& exclude();
 
     ///////////////////////////////////////////////////////////
     /// \brief Set the function that will get called on all entities that match the observer query

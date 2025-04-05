@@ -31,18 +31,22 @@ int main() {
             printf("%f %f %f %d\n", pos.x, pos.y, pos.z, (uint32_t)it.id);
         });
 
-    auto entity = world.entity().add(Position{0.0f, 1.0f, 0.0f}).create();
+    auto entities = world.entity().add(Position{0.0f, 1.0f, 0.0f}).create();
 
     auto query = world.query().match<Position>().compile();
     query.each([](const Position& pos) {
         printf("queried entity\n");
     });
 
-    world.remove(entity[0]);
+    auto entity = world.getEntity(entities[0]);
+    auto pos = entity.get<Position>();
+    entity.release();
+
+    world.remove(entities[0]);
 
     std::cout << "Hello, World!\n";
 
-    world.tick();
+    world.removeQueuedEntities();
 
     return 0;
 }

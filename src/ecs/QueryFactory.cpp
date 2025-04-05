@@ -12,7 +12,7 @@ QueryAccessor::QueryAccessor(World* world, EntityGroup* group, uint32_t entityId
       m_entityIdx(entityIdx) {}
 
 ///////////////////////////////////////////////////////////
-QueryAccessor QueryAccessor::get(EntityId id) const {
+QueryAccessor QueryAccessor::getEntity(EntityId id) const {
     // Assuming that mutexes are already locked
 
     World::EntityData& data = m_world->m_entities[id];
@@ -41,6 +41,30 @@ uint32_t QueryDescriptor::getHash() const {
         base ^= type.hash_code();
 
     return base;
+}
+
+///////////////////////////////////////////////////////////
+void QueryDescriptor::addInclude(const std::type_index& type) {
+    // Check if the list already has type
+    bool alreadyContains = false;
+    for (auto t : m_include)
+        alreadyContains |= t == type;
+
+    // Only add if it doesn't
+    if (!alreadyContains)
+        m_include.push_back(type);
+}
+
+///////////////////////////////////////////////////////////
+void QueryDescriptor::addExclude(const std::type_index& type) {
+    // Check if the list already has type
+    bool alreadyContains = false;
+    for (auto t : m_exclude)
+        alreadyContains |= t == type;
+
+    // Only add if it doesn't
+    if (!alreadyContains)
+        m_exclude.push_back(type);
 }
 
 ///////////////////////////////////////////////////////////

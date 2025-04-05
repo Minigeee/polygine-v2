@@ -123,6 +123,18 @@ void World::removeQueuedEntities() {
 }
 
 ///////////////////////////////////////////////////////////
+Entity World::getEntity(EntityId id) {
+    ReadLock lock(m_groupsMutex);
+
+    const auto& entityData = m_entities[id];
+    auto groupIt = m_groups.find(entityData.m_group);
+    if (groupIt == m_groups.end())
+        return Entity();
+
+    return Entity(this, id, groupIt.value().get(), entityData.m_index);
+}
+
+///////////////////////////////////////////////////////////
 Observer& World::observer(EntityEventType type) {
     Observer* observer = m_observerPool.alloc();
     m_observers[(uint32_t)type].push_back(observer);
@@ -137,11 +149,6 @@ EntityFactory World::entity() {
 ///////////////////////////////////////////////////////////
 QueryFactory World::query() {
     return QueryFactory(this);
-}
-
-///////////////////////////////////////////////////////////
-void World::tick() {
-    removeQueuedEntities();
 }
 
 ///////////////////////////////////////////////////////////
@@ -205,6 +212,13 @@ EntityGroup& World::getOrCreateEntityGroup(EntityGroupId id) {
 
         // Insert table
         groupIt = m_groups.emplace(std::make_pair(id, std::move(group))).first;
+
+        // Register group with queries
+        for (auto it = m_queries.begin(); it != m_queries.end(); ++it) {
+            QueryFactory* q = it.value();
+            if (matchesForGroup(*groupIt->second, q))
+                q->m_groups.push_back(id);
+        }
     }
 
     return *groupIt->second;

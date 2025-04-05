@@ -40,7 +40,7 @@ struct QueryAccessor {
     /// \brief Get an accessor for another entity
     ///
     ///////////////////////////////////////////////////////////
-    QueryAccessor get(EntityId id) const;
+    QueryAccessor getEntity(EntityId id) const;
 
 private:
     World* m_world;       //!< World pointer used to create new accessors
@@ -95,6 +95,17 @@ public:
     uint32_t getHash() const;
 
 protected:
+    ///////////////////////////////////////////////////////////
+    /// \brief Add a type to the include type set
+    ///////////////////////////////////////////////////////////
+    void addInclude(const std::type_index& type);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Add a type to the exclude type set
+    ///////////////////////////////////////////////////////////
+    void addExclude(const std::type_index& type);
+
+protected:
     std::vector<std::type_index> m_include; //!< A set of comopnents to include
     std::vector<std::type_index> m_exclude; //!< A set of comopnents to exclude
     std::vector<std::mutex*>
@@ -135,7 +146,7 @@ public:
     /// \brief Add a type to the include type set
     ///
     ///////////////////////////////////////////////////////////
-    template <ComponentType C> QueryFactory& match();
+    template <ComponentType... Cs> QueryFactory& match();
 
     ///////////////////////////////////////////////////////////
     /// \brief Set the which component types should be excluded from the component query
@@ -149,7 +160,7 @@ public:
     /// \brief Add a type to the exclude type set
     ///
     ///////////////////////////////////////////////////////////
-    template <ComponentType C> QueryFactory& exclude();
+    template <ComponentType... Cs> QueryFactory& exclude();
 
     ///////////////////////////////////////////////////////////
     /// \brief Compile the query

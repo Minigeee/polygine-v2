@@ -1,5 +1,6 @@
 #include <loguru.hpp>
 #include <ply/core/Tuple.h>
+#include <ply/core/Macros.h>
 
 namespace ply {
 
@@ -18,34 +19,14 @@ template <ComponentType C> C& QueryAccessor::get() const {
 }
 
 ///////////////////////////////////////////////////////////
-template <ComponentType C> QueryFactory& QueryFactory::match() {
-    std::type_index type = typeid(C);
-
-    // Check if the list already has type
-    bool alreadyContains = false;
-    for (auto t : m_include)
-        alreadyContains |= t == type;
-
-    // Only add if it doesn't
-    if (!alreadyContains)
-        m_include.push_back(type);
-
+template <ComponentType... Cs> QueryFactory& QueryFactory::match() {
+    PARAM_EXPAND(addInclude(typeid(Cs)));
     return *this;
 }
 
 ///////////////////////////////////////////////////////////
-template <ComponentType C> QueryFactory& QueryFactory::exclude() {
-    std::type_index type = typeid(C);
-
-    // Check if the list already has type
-    bool alreadyContains = false;
-    for (auto t : m_exclude)
-        alreadyContains |= t == type;
-
-    // Only add if it doesn't
-    if (!alreadyContains)
-        m_exclude.push_back(type);
-
+template <ComponentType... Cs> QueryFactory& QueryFactory::exclude() {
+    PARAM_EXPAND(addExclude(typeid(Cs)));
     return *this;
 }
 

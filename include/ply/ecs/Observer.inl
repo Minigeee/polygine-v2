@@ -1,37 +1,18 @@
 #include <ply/core/Tuple.h>
 #include <ply/core/Types.h>
+#include <ply/core/Macros.h>
 
 namespace ply {
 
 ///////////////////////////////////////////////////////////
-template <ComponentType C> Observer& Observer::match() {
-    std::type_index type = typeid(C);
-
-    // Check if the list already has type
-    bool alreadyContains = false;
-    for (auto t : m_include)
-        alreadyContains |= t == type;
-
-    // Only add if it doesn't
-    if (!alreadyContains)
-        m_include.push_back(type);
-
+template <ComponentType... Cs> Observer& Observer::match() {
+    PARAM_EXPAND(addInclude(typeid(Cs)));
     return *this;
 }
 
 ///////////////////////////////////////////////////////////
-template <ComponentType C> Observer& Observer::exclude() {
-    std::type_index type = typeid(C);
-
-    // Check if the list already has type
-    bool alreadyContains = false;
-    for (auto t : m_exclude)
-        alreadyContains |= t == type;
-
-    // Only add if it doesn't
-    if (!alreadyContains)
-        m_exclude.push_back(type);
-
+template <ComponentType... Cs> Observer& Observer::exclude() {
+    PARAM_EXPAND(addExclude(typeid(Cs)));
     return *this;
 }
 

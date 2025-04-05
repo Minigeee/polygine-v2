@@ -1,0 +1,29 @@
+#pragma once
+
+#include <ply/core/Handle.h>
+#include <typeindex>
+
+namespace ply {
+
+///////////////////////////////////////////////////////////
+/// \brief Type of the id for entity groups
+///
+///////////////////////////////////////////////////////////
+typedef uint32_t EntityGroupId;
+
+///////////////////////////////////////////////////////////
+/// \brief Type of the id for entities
+///
+///////////////////////////////////////////////////////////
+typedef Handle EntityId;
+
+///////////////////////////////////////////////////////////
+/// \brief Constraint on components using this system
+///
+///////////////////////////////////////////////////////////
+template <class T>
+concept ComponentType = std::is_standard_layout_v<T> && std::is_trivially_copyable_v<T>;
+
+}
+
+#define VALID_COMPONENT_TYPE(T) std::is_standard_layout_v<T>&& std::is_trivially_copyable_v<T>
