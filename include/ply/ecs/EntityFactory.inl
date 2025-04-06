@@ -2,7 +2,6 @@
 #include <ply/core/PoolAllocator.h>
 #include <ply/core/Tuple.h>
 #include <ply/core/Types.h>
-#include <ply/ecs/Entity.h>
 #include <ply/ecs/EntityFactory.h>
 
 #include <loguru.hpp>
@@ -28,7 +27,7 @@ template <ComponentType C> EntityFactory& EntityFactory::add(const C& component)
         *ptr = component;
 
         // Save data
-        m_components[tid] = ComponentMetadata({ptr, sizeof(C), alignof(C)});
+        m_components[tid] = priv::ComponentMetadata({ptr, sizeof(C), alignof(C)});
     }
 
     return *this;

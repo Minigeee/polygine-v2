@@ -3,7 +3,8 @@
 #include <ply/core/Mutex.h>
 #include <ply/core/PoolAllocator.h>
 #include <ply/core/Types.h>
-#include <ply/ecs/Entity.h>
+#include <ply/ecs/ComponentStore.h>
+#include <ply/ecs/Types.h>
 
 #include <typeindex>
 
@@ -100,24 +101,15 @@ public:
     /// are being used
     ///
     ///////////////////////////////////////////////////////////
-    template <typename Func>
-    std::vector<EntityId> create(Func&& onCreate, uint32_t num = 1);
+    template <typename Func> std::vector<EntityId> create(Func&& onCreate, uint32_t num = 1);
 
 private:
-    ///////////////////////////////////////////////////////////
-    /// \brief Contains data required to create components
-    ///////////////////////////////////////////////////////////
-    struct ComponentMetadata {
-        void* m_data;     //!< Pointer to component data
-        uint32_t m_size;  //!< Size of component type
-        uint32_t m_align; //!< Align of component type
-    };
-    
     ///////////////////////////////////////////////////////////
     /// \brief Actual templated create implementation
     ///////////////////////////////////////////////////////////
     template <typename... Cs, typename Func>
-    std::vector<EntityId> templateCreateImpl(Func&& onCreate, uint32_t num, type_wrapper<std::tuple<Cs...>>);
+    std::vector<EntityId>
+    templateCreateImpl(Func&& onCreate, uint32_t num, type_wrapper<std::tuple<Cs...>>);
 
     ///////////////////////////////////////////////////////////
     /// \brief Common create code
@@ -134,7 +126,7 @@ private:
 private:
     World* m_world;       //!< A pointer to the scene the builder belongs to
     EntityGroup* m_group; //!< The group the entities will be added to
-    HashMap<std::type_index, ComponentMetadata>
+    HashMap<std::type_index, priv::ComponentMetadata>
         m_components; //!< Map of component types to their instantiated data
 
     static HashMap<std::type_index, ObjectPool>

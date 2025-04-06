@@ -4,8 +4,8 @@
 #include <ply/core/Mutex.h>
 #include <ply/core/TypeSet.h>
 #include <ply/core/Types.h>
-#include <ply/ecs/Entity.h>
 #include <ply/ecs/EntityGroup.h>
+#include <ply/ecs/Types.h>
 #include <type_traits>
 #include <vector>
 
@@ -22,7 +22,7 @@ struct QueryAccessor {
     ///////////////////////////////////////////////////////////
     /// \brief Constructor
     ///////////////////////////////////////////////////////////
-    QueryAccessor(World* world, EntityGroup* group, uint32_t entityIdx);
+    QueryAccessor(World* world, EntityGroup* group, EntityId id, uint32_t entityIdx);
 
     ///////////////////////////////////////////////////////////
     /// \brief Check if the current entity has a component
@@ -37,10 +37,24 @@ struct QueryAccessor {
     template <ComponentType C> C& get() const;
 
     ///////////////////////////////////////////////////////////
+    /// \brief Add a component to the current entity
+    ///
+    ///////////////////////////////////////////////////////////
+    template <ComponentType C> void add(const C& component);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Remove a component from the current entity
+    ///
+    ///////////////////////////////////////////////////////////
+    template <ComponentType C> void remove();
+
+    ///////////////////////////////////////////////////////////
     /// \brief Get an accessor for another entity
     ///
     ///////////////////////////////////////////////////////////
     QueryAccessor getEntity(EntityId id) const;
+
+    EntityId id; //!< Entity id of current iteration
 
 private:
     World* m_world;       //!< World pointer used to create new accessors
@@ -71,7 +85,6 @@ struct QueryIterator : public QueryAccessor {
         uint32_t entityIdx
     );
 
-    EntityId id;    //!< Entity id of current iteration
     uint32_t index; //!< Index of current iteration
 };
 
@@ -174,5 +187,3 @@ private:
 };
 
 } // namespace ply
-
-#include <ply/ecs/QueryFactory.inl>

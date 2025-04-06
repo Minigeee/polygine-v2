@@ -108,6 +108,7 @@ void World::removeQueuedEntities() {
         }
 
         // Use ptrs to invoke all entity listeners
+        sendEntityEvent(OnExit, group.m_removeQueue, ptrs, &group);
         sendEntityEvent(OnRemove, group.m_removeQueue, ptrs, &group);
 
         // Free temp blocks
@@ -149,6 +150,11 @@ EntityFactory World::entity() {
 ///////////////////////////////////////////////////////////
 QueryFactory World::query() {
     return QueryFactory(this);
+}
+
+///////////////////////////////////////////////////////////
+void World::tick() {
+    removeQueuedEntities();
 }
 
 ///////////////////////////////////////////////////////////
@@ -204,24 +210,33 @@ bool World::matchesForGroup(EntityGroup& group, QueryDescriptor* query) {
 }
 
 ///////////////////////////////////////////////////////////
-EntityGroup& World::getOrCreateEntityGroup(EntityGroupId id) {
+EntityGroup* World::getOrCreateEntityGroup(
+    EntityGroupId id,
+    const HashMap<std::type_index, priv::ComponentMetadata>& components
+) {
     auto groupIt = m_groups.find(id);
     if (groupIt == m_groups.end()) {
-        auto group = std::make_unique<EntityGroup>();
+        // Insert table
+        groupIt = m_groups.emplace(std::make_pair(id, std::make_unique<EntityGroup>())).first;
+
+        auto group = groupIt->second.get();
         group->m_id = id;
 
-        // Insert table
-        groupIt = m_groups.emplace(std::make_pair(id, std::move(group))).first;
+        // Create component arrays
+        for (auto it = components.begin(); it != components.end(); ++it) {
+            const priv::ComponentMetadata& meta = it.value();
+            group->m_components[it.key()] = priv::ComponentStore(meta.m_size, meta.m_align);
+        }
 
         // Register group with queries
         for (auto it = m_queries.begin(); it != m_queries.end(); ++it) {
             QueryFactory* q = it.value();
-            if (matchesForGroup(*groupIt->second, q))
+            if (matchesForGroup(*group, q))
                 q->m_groups.push_back(id);
         }
     }
 
-    return *groupIt->second;
+    return groupIt->second.get();
 }
 
 ///////////////////////////////////////////////////////////

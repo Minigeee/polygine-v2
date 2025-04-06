@@ -1,4 +1,6 @@
 #include <ply/ecs/Entity.h>
+#include <ply/ecs/EntityGroup.h>
+#include <loguru.hpp>
 
 namespace ply {
 

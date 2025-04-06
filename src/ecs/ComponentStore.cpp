@@ -116,7 +116,7 @@ ComponentStore& ComponentStore::operator=(ComponentStore&& other) noexcept {
 }
 
 ///////////////////////////////////////////////////////////
-void* ComponentStore::push(void* data, size_t instances) {
+void* ComponentStore::push(const void* data, size_t instances) {
     // Double space if out
     if (m_last + instances * m_typeSize > m_end)
         reserve((m_end - m_start) / m_typeSize * 2);
@@ -175,6 +175,11 @@ size_t ComponentStore::size() const {
 ///////////////////////////////////////////////////////////
 size_t ComponentStore::getTypeSize() const {
     return m_typeSize;
+}
+
+///////////////////////////////////////////////////////////
+size_t ComponentStore::getTypeAlign() const {
+    return m_typeAlign;
 }
 
 }  // namespace priv

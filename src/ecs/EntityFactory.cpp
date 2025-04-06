@@ -117,15 +117,7 @@ EntityFactory::createImpl(uint32_t num, HashMap<std::type_index, void*>& ptrs) {
     {
         // Lock group map
         WriteLock worldLock(m_world->m_groupsMutex);
-
-        group = &m_world->getOrCreateEntityGroup(groupId);
-        if (group->m_components.empty()) {
-            // Create component arrays
-            for (auto it = m_components.begin(); it != m_components.end(); ++it) {
-                ComponentMetadata& meta = it.value();
-                group->m_components[it.key()] = priv::ComponentStore(meta.m_size, meta.m_align);
-            }
-        }
+        group = m_world->getOrCreateEntityGroup(groupId, m_components);
     }
 
     // Store group pointer
@@ -145,6 +137,7 @@ EntityFactory::createImpl(uint32_t num, HashMap<std::type_index, void*>& ptrs) {
         World::EntityData data;
         data.m_group = groupId;
         data.m_index = startIndex + i;
+        data.m_isAlive = true;
 
         // Add to global list of entity data
         Handle handle = entityData.push(data);
@@ -172,6 +165,7 @@ void EntityFactory::sendEvent(
         return;
 
     m_world->sendEntityEvent(World::OnCreate, ids, ptrs, m_group);
+    m_world->sendEntityEvent(World::OnEnter, ids, ptrs, m_group);
 }
 
 } // namespace ply

@@ -105,6 +105,23 @@ public:
     HashMap<std::type_index, void*> getAll();
 
     ///////////////////////////////////////////////////////////
+    /// \brief Add a component to the entity
+    ///
+    /// \tparam C The component type to add
+    /// \param component The component to add
+    ///
+    ///////////////////////////////////////////////////////////
+    template <ComponentType C> void add(const C& component);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Remove a component from the entity
+    ///
+    /// \tparam C The component type to remove
+    ///
+    ///////////////////////////////////////////////////////////
+    template <ComponentType C> void remove();
+
+    ///////////////////////////////////////////////////////////
     /// \brief Get the id of the entity
     ///
     ///////////////////////////////////////////////////////////
@@ -119,4 +136,6 @@ private:
 
 }
 
+#ifndef PLY_ECS_WORLD_H
 #include <ply/ecs/Entity.inl>
+#endif

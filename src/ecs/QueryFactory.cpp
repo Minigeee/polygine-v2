@@ -6,17 +6,18 @@
 namespace ply {
 
 ///////////////////////////////////////////////////////////
-QueryAccessor::QueryAccessor(World* world, EntityGroup* group, uint32_t entityIdx)
+QueryAccessor::QueryAccessor(World* world, EntityGroup* group, EntityId id, uint32_t entityIdx)
     : m_world(world),
       m_group(group),
-      m_entityIdx(entityIdx) {}
+      m_entityIdx(entityIdx),
+      id(id) {}
 
 ///////////////////////////////////////////////////////////
 QueryAccessor QueryAccessor::getEntity(EntityId id) const {
     // Assuming that mutexes are already locked
 
     World::EntityData& data = m_world->m_entities[id];
-    return QueryAccessor(m_world, m_world->m_groups[data.m_group].get(), data.m_index);
+    return QueryAccessor(m_world, m_world->m_groups[data.m_group].get(), this->id, data.m_index);
 }
 
 ///////////////////////////////////////////////////////////
@@ -27,8 +28,7 @@ QueryIterator::QueryIterator(
     EntityGroup* group,
     uint32_t entityIdx
 )
-    : QueryAccessor(world, group, entityIdx),
-      id(_id),
+    : QueryAccessor(world, group, _id, entityIdx),
       index(_index) {}
 
 ///////////////////////////////////////////////////////////

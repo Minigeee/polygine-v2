@@ -1,6 +1,8 @@
+#pragma once
+
 #include <loguru.hpp>
-#include <ply/core/Tuple.h>
 #include <ply/core/Macros.h>
+#include <ply/core/Tuple.h>
 
 namespace ply {
 
@@ -16,6 +18,16 @@ template <ComponentType C> C& QueryAccessor::get() const {
     auto ptr = it != m_group->m_components.end() ? (C*)it.value().data(m_entityIdx) : nullptr;
     CHECK_F(ptr != nullptr, "component %s not found", typeid(C).name());
     return *ptr;
+}
+
+///////////////////////////////////////////////////////////
+template <ComponentType C> void QueryAccessor::add(const C& component) {
+    m_world->addComponent(id, component);
+}
+
+///////////////////////////////////////////////////////////
+template <ComponentType C> void QueryAccessor::remove() {
+    m_world->removeComponent<C>(id);
 }
 
 ///////////////////////////////////////////////////////////

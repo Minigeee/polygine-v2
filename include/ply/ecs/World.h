@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef PLY_ECS_WORLD_H
+#define PLY_ECS_WORLD_H
+#endif
+
 #include <memory>
 #include <ply/core/Clock.h>
 #include <ply/core/HandleArray.h>
@@ -70,6 +74,8 @@ public:
     enum EntityEventType {
         OnCreate = 0, //!< Called when entities are created
         OnRemove,     //!< Called when entities are removed
+        OnEnter,      //!< Called when entities enter a query (when they start matching a query)
+        OnExit,       //!< Called when entities exit a query (when they stop matching a query)
         NUM_EVENTS
     };
 
@@ -128,19 +134,6 @@ public:
     void remove(EntityId id);
 
     ///////////////////////////////////////////////////////////
-    /// \brief Remove all entities that are queued for removal
-    ///
-    /// Removes all queued entities. This function should only be
-    /// called once per frame. Most often, it should be called at
-    /// the end of an update frame, after all component data has
-    /// finished processing.
-    ///
-    /// \see remove
-    ///
-    ///////////////////////////////////////////////////////////
-    void removeQueuedEntities();
-
-    ///////////////////////////////////////////////////////////
     /// \brief Get an entity accessor for the specified entity
     ///
     /// Returns an Entity accessor object that provides temporary
@@ -156,6 +149,10 @@ public:
     ///
     ///////////////////////////////////////////////////////////
     Entity getEntity(EntityId id);
+
+    template <ComponentType C> void addComponent(EntityId id, const C& component);
+
+    template <ComponentType C> void removeComponent(EntityId id);
 
     ///////////////////////////////////////////////////////////
     /// \brief Get an observer for entity events
@@ -206,6 +203,8 @@ public:
     ///////////////////////////////////////////////////////////
     QueryFactory query();
 
+    void tick();
+
 private:
     ///////////////////////////////////////////////////////////
     /// \brief Data for entities
@@ -217,6 +216,7 @@ private:
     struct EntityData {
         EntityGroupId m_group; //!< Group the entity belongs to
         uint32_t m_index;      //!< Index of entity's components within group
+        bool m_isAlive;        //!< If entity is alive
     };
 
     ///////////////////////////////////////////////////////////
@@ -240,6 +240,19 @@ private:
     );
 
     ///////////////////////////////////////////////////////////
+    /// \brief Remove all entities that are queued for removal
+    ///
+    /// Removes all queued entities. This function should only be
+    /// called once per frame. Most often, it should be called at
+    /// the end of an update frame, after all component data has
+    /// finished processing.
+    ///
+    /// \see remove
+    ///
+    ///////////////////////////////////////////////////////////
+    void removeQueuedEntities();
+
+    ///////////////////////////////////////////////////////////
     /// \brief Check if query matches for an entity group
     ///
     /// Internal method that determines if a query matches the
@@ -259,11 +272,15 @@ private:
     /// \brief Get or create entity group
     ///
     /// \param id The id of the group
+    ///\param components The components that will be stored in the group
     ///
-    /// \return A reference to the entity group
+    /// \return A pointer to the entity group
     ///
     ///////////////////////////////////////////////////////////
-    EntityGroup& getOrCreateEntityGroup(EntityGroupId id);
+    EntityGroup* getOrCreateEntityGroup(
+        EntityGroupId id,
+        const HashMap<std::type_index, priv::ComponentMetadata>& components
+    );
 
     ///////////////////////////////////////////////////////////
     /// \brief Register query so that it can properly find components and entities
@@ -298,6 +315,10 @@ private:
 };
 
 } // namespace ply
+
+#include <ply/ecs/Entity.inl>
+#include <ply/ecs/QueryFactory.inl>
+#include <ply/ecs/World.inl>
 
 // Include so that .cpp files have access to the function w/o having to use extra includes
 #include <ply/ecs/Query.h>

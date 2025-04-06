@@ -8,6 +8,10 @@ struct Position {
     float x, y, z;
 };
 
+struct Velocity {
+    float x, y, z;
+};
+
 #include <ply/ecs/World.h>
 
 void test(int x, float y) {}
@@ -38,21 +42,31 @@ int main() {
         world.entity().add(Position{0.0f, 1.0f, 0.0f}).create([](Position& pos) { pos.z = 2.5f; });
 
     auto query = world.query().match<Position>().compile();
-    query.each([](const Position& pos) { printf("queried entity\n"); });
+
+    world.addComponent(entities[0], Velocity{1.0f, 0.0f, 0.0f});
+    query.each([](ply::QueryIterator it, const Position& pos) {
+        bool hasVel = it.has<Velocity>();
+        printf("queried entity\n");
+    });
+    
+    world.removeComponent<Position>(entities[0]);
+    query.each([](ply::QueryIterator it, const Position& pos) {
+        bool hasVel = it.has<Velocity>();
+        printf("queried entity 2\n");
+    });
 
     auto entity = world.getEntity(entities[0]);
-    auto pos = entity.get<Position>();
+    auto vel = entity.get<Velocity>();
+    entity.add(Position{0.0f, 0.0f, 0.0f});
     entity.release();
 
     world.remove(entities[0]);
 
-    events.addListener<Position>([](const Position& pos) {
-        std::cout << "received pos event\n";
-    });
+    events.addListener<Position>([](const Position& pos) { std::cout << "received pos event\n"; });
 
     std::cout << "Hello, World!\n";
 
-    world.removeQueuedEntities();
+    world.tick();
 
     events.poll();
 

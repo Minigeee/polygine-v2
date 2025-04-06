@@ -73,11 +73,19 @@ template <typename E> void EventSystem::removeListener(Handle handle) {
 ///////////////////////////////////////////////////////////
 template <typename E> void EventSystem::sendEvent(const E& event) {
     // Create event queue if needed
-    priv::EventQueue<E>& queue = getOrCreateEventQueue<E>();
+    priv::EventQueue<E>* queue = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        auto it = m_queues.find(typeid(E));
+        if (it != m_queues.end())
+            queue = static_cast<priv::EventQueue<E>*>(it->second);
+    }
 
     // Add event to queue
-    std::lock_guard<std::mutex> lock(queue.m_mutex);
-    queue.m_events.push_back(event);
+    if (queue) {
+        std::lock_guard<std::mutex> lock(queue->m_mutex);
+        queue->m_events.push_back(event);
+    }
 }
 
 ///////////////////////////////////////////////////////////
