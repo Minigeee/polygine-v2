@@ -13,27 +13,96 @@ World::World() : m_numRemoveQueued(0) {
 }
 
 ///////////////////////////////////////////////////////////
-World::~World() {}
+World::~World() {
+    // Free all queued entities
+    for (auto factory : m_addQueue) {
+        delete factory;
+    }
+
+    // Free all component changes
+    for (auto it = m_changeQueue.begin(); it != m_changeQueue.end(); ++it) {
+        if (it->m_component)
+            FREE_DBG(it->m_component);
+    }
+
+    m_addQueue.clear();
+    m_changeQueue.clear();
+}
 
 ///////////////////////////////////////////////////////////
 void World::remove(EntityId entity) {
     // Find the correct group
-    EntityGroupId table = m_entities[entity].m_group;
+    EntityGroupId groupId = m_entities[entity].m_group;
 
     // Entity removal is protected by mutex
     ReadLock lock(m_groupsMutex);
 
-    auto it = m_groups.find(table);
+    auto it = m_groups.find(groupId);
     if (it == m_groups.end()) {
-        LOG_F(WARNING, "could not find entity table");
+        LOG_F(WARNING, "could not find entity group");
         return;
     }
 
-    // This function adds it to a remove queue
-    it.value()->m_removeQueue.push_back(entity);
+    EntityGroup* group = it.value().get();
 
-    // Increment number of queued entities
-    ++m_numRemoveQueued;
+    // Check if we need to defer
+    bool defer = !group->m_mutex.try_lock();
+
+    if (defer) {
+        // Add to remove queue if mutex not available
+        group->m_removeQueue.push_back(entity);
+
+        // Increment number of queued entities
+        ++m_numRemoveQueued;
+    } else {
+        // Replace manual lock with lock object
+        std::unique_lock<std::shared_mutex> lock(group->m_mutex, std::adopt_lock);
+
+        // Get entity index
+        uint32_t index = m_entities[entity].m_index;
+
+        // Get back entity (for swap-pop operation)
+        EntityId back = group->m_entities.back();
+
+        // Update index of back entity to be that of the one being removed
+        m_entities[back].m_index = index;
+
+        // Swap-pop for entity list in table
+        group->m_entities[index] = back;
+        group->m_entities.pop_back();
+
+        // Allocate temp map to copy components for entity removed listeners
+        HashMap<std::type_index, void*> ptrs;
+        for (auto cIt = group->m_components.begin(); cIt != group->m_components.end(); ++cIt) {
+            // Get component array
+            priv::ComponentStore& store = cIt.value();
+
+            // Allocate space for temp block (just one entity)
+            uint32_t typeSize = store.getTypeSize();
+            uint8_t* block = (uint8_t*)MALLOC_DBG(typeSize);
+            ptrs[cIt.key()] = block;
+
+            // Copy the component into the ptrs map (gets sent to observers)
+            memcpy(block, store.data(index), typeSize);
+
+            // Remove the component
+            store.remove(index);
+        }
+
+        // Remove entity from main list
+        m_entities.remove(entity);
+
+        // Create a vector with just this entity for event sending
+        std::vector<EntityId> entities = {entity};
+
+        // Use ptrs to invoke all entity listeners
+        sendEntityEvent(OnExit, entities, ptrs, group);
+        sendEntityEvent(OnRemove, entities, ptrs, group);
+
+        // Free temp blocks
+        for (auto ptrIt = ptrs.begin(); ptrIt != ptrs.end(); ++ptrIt)
+            FREE_DBG(ptrIt.value());
+    }
 }
 
 ///////////////////////////////////////////////////////////
@@ -138,6 +207,8 @@ Entity World::getEntity(EntityId id) {
 ///////////////////////////////////////////////////////////
 Observer& World::observer(EntityEventType type) {
     Observer* observer = m_observerPool.alloc();
+    observer->m_world = this;
+
     m_observers[(uint32_t)type].push_back(observer);
     return *observer;
 }
@@ -155,6 +226,283 @@ QueryFactory World::query() {
 ///////////////////////////////////////////////////////////
 void World::tick() {
     removeQueuedEntities();
+    addQueuedEntities();
+    changeQueuedEntities();
+}
+
+///////////////////////////////////////////////////////////
+void World::addComponent(
+    EntityGroup* group,
+    EntityId id,
+    std::type_index type,
+    void* component,
+    size_t size,
+    size_t align
+) {
+    // Get entity data
+    auto& data = m_entities[id];
+
+    // Don't add if component already exists
+    if (group->m_components.contains(type))
+        return;
+
+    // Get list of component types
+    auto& componentMap = group->m_components;
+    std::vector<std::type_index> types;
+    types.reserve(componentMap.size());
+    for (auto it = componentMap.begin(); it != componentMap.end(); ++it)
+        types.push_back(it.key());
+
+    types.push_back(type);
+
+    // Get new group hash
+    EntityGroupId newGroupId = entityGroupHash(types);
+
+    // Get new group (create if needed)
+    EntityGroup* newGroup = nullptr;
+    {
+        // Lock group map
+        WriteLock lock(m_groupsMutex);
+
+        // Perform search first so that we don't have to create component meta map if not needed
+        auto it = m_groups.find(newGroupId);
+        if (it != m_groups.end()) {
+            newGroup = it.value().get();
+        }
+
+        else {
+            // Create component map
+            HashMap<std::type_index, priv::ComponentMetadata> componentMetaMap;
+            for (auto it = componentMap.begin(); it != componentMap.end(); ++it)
+                componentMetaMap[it.key()] = priv::ComponentMetadata(
+                    NULL, it.value().getTypeSize(), it.value().getTypeAlign()
+                );
+            componentMetaMap[type] = priv::ComponentMetadata(NULL, size, align);
+
+            newGroup = getOrCreateEntityGroup(newGroupId, componentMetaMap);
+        }
+    }
+
+    HashMap<std::type_index, void*> ptrs;
+    {
+        // Lock new group
+        WriteLock newGroupLock(newGroup->m_mutex);
+
+        // Update entity data
+        size_t oldIndex = data.m_index;
+        data.m_group = newGroupId;
+        data.m_index = newGroup->m_entities.size();
+
+        // Add entity to new group
+        newGroup->m_entities.push_back(id);
+        // Remove entity from old group
+        group->m_entities[oldIndex] = group->m_entities.back();
+        group->m_entities.pop_back();
+
+        // Add new component
+        auto& newComponents = newGroup->m_components;
+        newComponents[type].push(&component, 1);
+        ptrs[type] = newComponents[type].data(newGroup->m_entities.size() - 1);
+
+        // Manage components
+        for (auto it = componentMap.begin(); it != componentMap.end(); ++it) {
+            auto& componentStore = newComponents[it.key()];
+
+            // Add components to new group
+            componentStore.push(it.value().data(oldIndex), 1);
+            ptrs[it.key()] = componentStore.data(componentStore.size() - 1);
+
+            // Remove components from old group
+            it.value().remove(oldIndex);
+        }
+
+        // Send events
+        dispatchEntityChangeEvents(id, ptrs, group, newGroup);
+    }
+}
+
+///////////////////////////////////////////////////////////
+void World::removeComponent(EntityGroup* group, EntityId id, std::type_index type) {
+    // Get entity data
+    auto& data = m_entities[id];
+
+    // Don't remove if component doesn't exist
+    if (!group->m_components.contains(type))
+        return;
+
+    // Get list of component types
+    auto& componentMap = group->m_components;
+    std::vector<std::type_index> types;
+    types.reserve(componentMap.size());
+    for (auto it = componentMap.begin(); it != componentMap.end(); ++it) {
+        if (it.key() == type)
+            continue;
+
+        types.push_back(it.key());
+    }
+
+    // Get new group hash
+    EntityGroupId newGroupId = entityGroupHash(types);
+
+    // Get new group (create if needed)
+    EntityGroup* newGroup = nullptr;
+    {
+        // Lock group map
+        WriteLock lock(m_groupsMutex);
+
+        // Perform search first so that we don't have to create component meta map if not needed
+        auto it = m_groups.find(newGroupId);
+        if (it != m_groups.end()) {
+            newGroup = it.value().get();
+        }
+
+        else {
+            // Create component map
+            HashMap<std::type_index, priv::ComponentMetadata> componentMetaMap;
+            for (auto it = componentMap.begin(); it != componentMap.end(); ++it) {
+                if (it.key() == type)
+                    continue;
+
+                componentMetaMap[it.key()] = priv::ComponentMetadata(
+                    NULL, it.value().getTypeSize(), it.value().getTypeAlign()
+                );
+            }
+
+            newGroup = getOrCreateEntityGroup(newGroupId, componentMetaMap);
+        }
+    }
+
+    HashMap<std::type_index, void*> ptrs;
+    {
+        // Lock new group
+        WriteLock newGroupLock(newGroup->m_mutex);
+
+        // Update entity data
+        size_t oldIndex = data.m_index;
+        data.m_group = newGroupId;
+        data.m_index = newGroup->m_entities.size();
+
+        // Add entity to new group
+        newGroup->m_entities.push_back(id);
+        // Remove entity from old group
+        group->m_entities[oldIndex] = group->m_entities.back();
+        group->m_entities.pop_back();
+
+        // Manage components
+        for (auto it = componentMap.begin(); it != componentMap.end(); ++it) {
+            if (it.key() == type) {
+                // Save NULL pointer for removed component
+                ptrs[type] = NULL;
+            } else {
+                // Add components to new group
+                auto& componentStore = newGroup->m_components[it.key()];
+                componentStore.push(it.value().data(oldIndex), 1);
+                ptrs[it.key()] = componentStore.data(componentStore.size() - 1);
+
+                // Remove components from old group
+                it.value().remove(oldIndex);
+            }
+        }
+
+        // Send events
+        dispatchEntityChangeEvents(id, ptrs, group, newGroup);
+    }
+}
+
+///////////////////////////////////////////////////////////
+void World::dispatchEntityChangeEvents(
+    EntityId id,
+    const HashMap<std::type_index, void*>& ptrs,
+    EntityGroup* oldGroup,
+    EntityGroup* newGroup
+) {
+    // Detect enter queries
+    auto& enterQueries = m_observers[(uint32_t)EntityEventType::OnEnter];
+    for (auto observer : enterQueries) {
+        Observer& q = *observer;
+        if (q.m_watchGroups.contains(newGroup->m_id) && !q.m_watchGroups.contains(oldGroup->m_id)) {
+            // Lock mutexes if provided
+            std::vector<std::unique_lock<std::mutex>> locks;
+            locks.reserve(q.m_mutexes.size());
+            for (size_t m = 0; m < q.m_mutexes.size(); ++m)
+                locks.push_back(std::unique_lock<std::mutex>(*q.m_mutexes[m]));
+
+            // Invoke observer
+            q.m_iterator({id}, ptrs, this, newGroup);
+        }
+    }
+
+    // Detect exit queries
+    auto& exitQueries = m_observers[(uint32_t)EntityEventType::OnExit];
+    for (auto observer : exitQueries) {
+        Observer& q = *observer;
+        if (q.m_watchGroups.contains(oldGroup->m_id) && !q.m_watchGroups.contains(newGroup->m_id)) {
+            // Lock mutexes if provided
+            std::vector<std::unique_lock<std::mutex>> locks;
+            locks.reserve(q.m_mutexes.size());
+            for (size_t m = 0; m < q.m_mutexes.size(); ++m)
+                locks.push_back(std::unique_lock<std::mutex>(*q.m_mutexes[m]));
+
+            // Invoke observer
+            q.m_iterator({id}, ptrs, this, newGroup);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////
+void World::addQueuedEntities() {
+    // Process all entity creation requests
+    for (auto factory : m_addQueue) {
+        // Create entities (and ids)
+        HashMap<std::type_index, void*> ptrs;
+        std::vector<EntityId> ids = factory->createImpl(factory->m_numCreate, ptrs, false);
+
+        // Send add event
+        factory->sendEvent(ids, ptrs);
+
+        // Free factory
+        delete factory;
+    }
+
+    // Clear queue
+    m_addQueue.clear();
+}
+
+///////////////////////////////////////////////////////////
+void World::changeQueuedEntities() {
+    // Process all component changes
+    for (auto& change : m_changeQueue) {
+        // Get entity data
+        auto& data = m_entities[change.m_id];
+
+        // Get group
+        EntityGroup* group = nullptr;
+        {
+            // Lock group map
+            ReadLock lock(m_groupsMutex);
+            group = m_groups.find(data.m_group).value().get();
+        }
+        CHECK_F(group != NULL, "entity group not found");
+
+        // Lock group
+        WriteLock lock(group->m_mutex);
+
+        if (change.m_component) {
+            // Add component
+            addComponent(
+                group, change.m_id, change.m_type, change.m_component, change.m_size, change.m_align
+            );
+
+            // Free
+            FREE_DBG(change.m_component);
+        } else {
+            // Remove component
+            removeComponent(group, change.m_id, change.m_type);
+        }
+    }
+
+    // Clear component changes
+    m_changeQueue.clear();
 }
 
 ///////////////////////////////////////////////////////////
@@ -173,22 +521,15 @@ void World::sendEntityEvent(
     for (auto listener : listeners) {
         Observer& q = *listener;
 
-        // Check if matches
-        bool match = true;
-        for (size_t t = 0; t < q.m_include.size(); ++t)
-            match &= ptrs.contains(q.m_include[t]);
-
-        for (size_t t = 0; t < q.m_exclude.size(); ++t)
-            match &= !ptrs.contains(q.m_exclude[t]);
-
-        // Only invoke if match
-        if (match) {
+        // Only invoke if part of observer's watch list
+        if (q.m_watchGroups.contains(group->m_id)) {
             // Lock mutexes if provided
             std::vector<std::unique_lock<std::mutex>> locks;
             locks.reserve(q.m_mutexes.size());
             for (size_t m = 0; m < q.m_mutexes.size(); ++m)
                 locks.push_back(std::unique_lock<std::mutex>(*q.m_mutexes[m]));
 
+            // Invoke observer
             q.m_iterator(ids, ptrs, this, group);
         }
     }
@@ -228,6 +569,15 @@ EntityGroup* World::getOrCreateEntityGroup(
             group->m_components[it.key()] = priv::ComponentStore(meta.m_size, meta.m_align);
         }
 
+        // Register group with observers
+        for (size_t i = 0; i < EntityEventType::NUM_EVENTS; ++i) {
+            for (size_t o = 0; o < m_observers[i].size(); ++o) {
+                Observer* observer = m_observers[i][o];
+                if (matchesForGroup(*group, observer))
+                    observer->m_watchGroups.insert(id);
+            }
+        }
+
         // Register group with queries
         for (auto it = m_queries.begin(); it != m_queries.end(); ++it) {
             QueryFactory* q = it.value();
@@ -237,6 +587,18 @@ EntityGroup* World::getOrCreateEntityGroup(
     }
 
     return groupIt->second.get();
+}
+
+///////////////////////////////////////////////////////////
+void World::registerObserver(Observer* observer) {
+    ReadLock lock(m_groupsMutex);
+
+    // Create set of groups to watch
+    for (auto it = m_groups.begin(); it != m_groups.end(); ++it) {
+        EntityGroup* group = it.value().get();
+        if (matchesForGroup(*group, observer))
+            observer->m_watchGroups.insert(it.key());
+    }
 }
 
 ///////////////////////////////////////////////////////////
@@ -263,5 +625,10 @@ QueryFactory* World::registerQuery(QueryFactory* query) {
 
     return q;
 }
+
+///////////////////////////////////////////////////////////
+World::ComponentChange::ComponentChange(EntityId id, std::type_index type)
+    : m_id(id),
+      m_type(type) {}
 
 }

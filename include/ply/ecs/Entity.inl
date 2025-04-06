@@ -29,6 +29,11 @@ template <ComponentType C> void Entity::add(const C& component) {
     CHECK_F(m_group != nullptr, "entity is invalid");
     m_group->m_mutex.unlock_shared();
     m_world->addComponent(m_id, component);
+
+    // Group probably changed, update it
+    ReadLock lock(m_world->m_groupsMutex);
+    auto groupId = m_world->m_entities[m_id].m_group;
+    m_group = m_world->m_groups[groupId].get();
     m_group->m_mutex.lock_shared();
 }
 
@@ -37,6 +42,11 @@ template <ComponentType C> void Entity::remove() {
     CHECK_F(m_group != nullptr, "entity is invalid");
     m_group->m_mutex.unlock_shared();
     m_world->removeComponent<C>(m_id);
+
+    // Group probably changed, update it
+    ReadLock lock(m_world->m_groupsMutex);
+    auto groupId = m_world->m_entities[m_id].m_group;
+    m_group = m_world->m_groups[groupId].get();
     m_group->m_mutex.lock_shared();
 }
 

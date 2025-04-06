@@ -1,6 +1,9 @@
+#pragma once
+
+#include <ply/core/Macros.h>
 #include <ply/core/Tuple.h>
 #include <ply/core/Types.h>
-#include <ply/core/Macros.h>
+#include <ply/ecs/World.h>
 
 namespace ply {
 
@@ -66,8 +69,12 @@ template <typename Func> void Observer::each(Func&& fn) {
         typename rest_param_types<std::decay_t<decltype(fn)>>::type,
         typename param_types<std::decay_t<decltype(fn)>>::type>;
 
+    // Create iterator
     m_iterator =
         priv::makeIteratorFn(std::forward<Func>(fn), type_wrapper<decayed_tuple_t<CTypes>>{});
+
+    // Register observer
+    m_world->registerObserver(this);
 }
 
 }

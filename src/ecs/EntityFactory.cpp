@@ -7,14 +7,15 @@ namespace ply {
 HashMap<std::type_index, ObjectPool> EntityFactory::s_pools;
 
 ///////////////////////////////////////////////////////////
-EntityFactory::EntityFactory() : m_world(0) {}
+EntityFactory::EntityFactory() : m_world(0), m_numCreate(0) {}
 
 ///////////////////////////////////////////////////////////
-EntityFactory::EntityFactory(World* world) : m_world(world) {}
+EntityFactory::EntityFactory(World* world) : m_world(world), m_numCreate(0) {}
 
 ///////////////////////////////////////////////////////////
 EntityFactory::EntityFactory(const EntityFactory& other)
     : m_world(other.m_world),
+      m_numCreate(other.m_numCreate),
       m_components(other.m_components) {
     // Create copies of components
     if (m_components.size() > 0) {
@@ -35,8 +36,10 @@ EntityFactory::EntityFactory(const EntityFactory& other)
 ///////////////////////////////////////////////////////////
 EntityFactory::EntityFactory(EntityFactory&& other) noexcept
     : m_world(other.m_world),
+      m_numCreate(other.m_numCreate),
       m_components(std::move(other.m_components)) {
     other.m_world = 0;
+    other.m_numCreate = 0;
 }
 
 ///////////////////////////////////////////////////////////
@@ -54,6 +57,7 @@ EntityFactory::~EntityFactory() {
 EntityFactory& EntityFactory::operator=(const EntityFactory& other) {
     if (this != &other) {
         m_world = other.m_world;
+        m_numCreate = other.m_numCreate;
         m_components = other.m_components;
 
         // Create copies of components
@@ -79,9 +83,11 @@ EntityFactory& EntityFactory::operator=(const EntityFactory& other) {
 EntityFactory& EntityFactory::operator=(EntityFactory&& other) noexcept {
     if (this != &other) {
         m_world = other.m_world;
+        m_numCreate = other.m_numCreate;
         m_components = std::move(other.m_components);
 
         other.m_world = 0;
+        other.m_numCreate = 0;
     }
 
     return *this;
@@ -104,7 +110,7 @@ std::vector<EntityId> EntityFactory::create(uint32_t num) {
 
 ///////////////////////////////////////////////////////////
 std::vector<EntityId>
-EntityFactory::createImpl(uint32_t num, HashMap<std::type_index, void*>& ptrs) {
+EntityFactory::createImpl(uint32_t num, HashMap<std::type_index, void*>& ptrs, bool allowDefer) {
     // Get group hash
     std::vector<std::type_index> typeIds;
     for (auto it = m_components.begin(); it != m_components.end(); ++it)
@@ -122,9 +128,24 @@ EntityFactory::createImpl(uint32_t num, HashMap<std::type_index, void*>& ptrs) {
 
     // Store group pointer
     m_group = group;
+    m_numCreate = num;
+
+    // Check if we should defer
+    bool defer = !group->m_mutex.try_lock();
+    if (defer) {
+        if (allowDefer) {
+            // Add to queue
+            m_world->m_addQueue.push_back(new EntityFactory(std::move(*this)));
+            return {};
+        } else {
+            // If not allowed to defer, then just wait
+            defer = false;
+            group->m_mutex.lock();
+        }
+    }
 
     // Lock access to group
-    WriteLock groupLock(group->m_mutex);
+    WriteLock groupLock(group->m_mutex, std::adopt_lock);
 
     // Create entities (and ids)
     auto& entityData = m_world->m_entities;
@@ -161,9 +182,10 @@ void EntityFactory::sendEvent(
     const std::vector<EntityId>& ids,
     const HashMap<std::type_index, void*>& ptrs
 ) {
-    if (ids.size() == 0)
+    if (!m_group || ids.size() == 0)
         return;
 
+    ReadLock lock(m_group->m_mutex);
     m_world->sendEntityEvent(World::OnCreate, ids, ptrs, m_group);
     m_world->sendEntityEvent(World::OnEnter, ids, ptrs, m_group);
 }

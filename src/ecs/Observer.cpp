@@ -3,6 +3,9 @@
 namespace ply {
 
 ///////////////////////////////////////////////////////////
+Observer::Observer(World* world) : m_world(world) {}
+
+///////////////////////////////////////////////////////////
 Observer& Observer::lock(std::mutex& mutex) {
     m_mutexes.push_back(&mutex);
     return *this;

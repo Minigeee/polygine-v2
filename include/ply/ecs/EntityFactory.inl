@@ -80,7 +80,8 @@ EntityFactory::templateCreateImpl(Func&& onCreate, uint32_t num, type_wrapper<st
 
     // Create
     HashMap<std::type_index, void*> ptrs;
-    std::vector<EntityId> ids = createImpl(num, ptrs);
+    // Create (can't allow defered bc no way to store function)
+    std::vector<EntityId> ids = createImpl(num, ptrs, false);
 
     // Create tuple bc it should be a little faster to access
     Tuple<Cs*...> tuple((Cs*)ptrs.find(typeid(Cs)).value()...);

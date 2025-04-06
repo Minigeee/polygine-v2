@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ply/ecs/QueryFactory.h>
+#include <ply/ecs/Types.h>
 
 namespace ply {
 
@@ -11,14 +12,13 @@ class Observer : public QueryDescriptor {
     friend World;
 
 public:
-    using IteratorFn = std::function<void(
-        const std::vector<EntityId>&,
-        const HashMap<std::type_index, void*>&,
-        World*,
-        EntityGroup*
-    )>;
+    using IteratorFn = std::function<
+        void(const std::vector<EntityId>&, const HashMap<std::type_index, void*>&, World*, EntityGroup*)>;
 
 public:
+    Observer() = default;
+    Observer(World* world);
+
     ///////////////////////////////////////////////////////////
     /// \brief Add a mutex to lock before iterating comopnents
     ///
@@ -64,9 +64,13 @@ public:
     template <typename Func> void each(Func&& fn);
 
 private:
-    IteratorFn m_iterator; //!< The function that will get called
+    World* m_world;                       //!< World the observer is attached to
+    IteratorFn m_iterator;                //!< The function that will get called
+    HashSet<EntityGroupId> m_watchGroups; //!< The set of groups the observer should watch
 };
 
 } // namespace ply
 
+#ifndef PLY_ECS_WORLD_H
 #include <ply/ecs/Observer.inl>
+#endif

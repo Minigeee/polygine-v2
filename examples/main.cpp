@@ -37,6 +37,12 @@ int main() {
             printf("%f %f %f %d\n", pos.x, pos.y, pos.z, (uint32_t)it.id);
             events.sendEvent(pos);
         });
+    world.observer(ply::World::OnEnter)
+        .match<Velocity>()
+        .each([&world](ply::QueryIterator it, const Velocity& vel) {
+            printf("enter velocity query\n");
+            world.entity().add(Velocity{1.0f, 0.0f, 0.0f}).create();
+        });
 
     auto entities =
         world.entity().add(Position{0.0f, 1.0f, 0.0f}).create([](Position& pos) { pos.z = 2.5f; });
@@ -48,7 +54,7 @@ int main() {
         bool hasVel = it.has<Velocity>();
         printf("queried entity\n");
     });
-    
+
     world.removeComponent<Position>(entities[0]);
     query.each([](ply::QueryIterator it, const Position& pos) {
         bool hasVel = it.has<Velocity>();
@@ -58,9 +64,9 @@ int main() {
     auto entity = world.getEntity(entities[0]);
     auto vel = entity.get<Velocity>();
     entity.add(Position{0.0f, 0.0f, 0.0f});
-    entity.release();
 
     world.remove(entities[0]);
+    entity.release();
 
     events.addListener<Position>([](const Position& pos) { std::cout << "received pos event\n"; });
 
@@ -69,6 +75,12 @@ int main() {
     world.tick();
 
     events.poll();
+
+    // WIP :
+    // - [X] Implement enter/exit dispatcher
+    // - [ ] Implement deferred component change processor
+    // - [ ] Implement entity create defer option
+    // - [ ] Implement deferred entity create processor
 
     return 0;
 }

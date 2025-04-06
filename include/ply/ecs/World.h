@@ -4,7 +4,6 @@
 #define PLY_ECS_WORLD_H
 #endif
 
-#include <memory>
 #include <ply/core/Clock.h>
 #include <ply/core/HandleArray.h>
 #include <ply/core/Mutex.h>
@@ -13,6 +12,9 @@
 #include <ply/ecs/EntityGroup.h>
 #include <ply/ecs/Observer.h>
 #include <ply/ecs/QueryFactory.h>
+
+#include <memory>
+#include <typeindex>
 
 namespace ply {
 
@@ -61,10 +63,12 @@ class Query;
 ///
 ///////////////////////////////////////////////////////////
 class World {
+    friend class Entity;
     friend class EntityFactory;
     friend class QueryAccessor;
     friend class QueryFactory;
     friend class Query;
+    friend class Observer;
 
 public:
     ///////////////////////////////////////////////////////////
@@ -220,6 +224,19 @@ private:
     };
 
     ///////////////////////////////////////////////////////////
+    /// \brief Data for deferred component change operations
+    ///////////////////////////////////////////////////////////
+    struct ComponentChange {
+        ComponentChange(EntityId id, std::type_index type);
+
+        EntityId m_id;          //!< Entity that is changing
+        std::type_index m_type; //!< Type of component
+        void* m_component;      //!< Component to add or NULL for remove
+        size_t m_size;          //!< Type size
+        size_t m_align;         //!< Type alignment
+    };
+
+    ///////////////////////////////////////////////////////////
     /// \brief Send entity event
     ///
     /// Internal method that notifies observers about entity events.
@@ -253,6 +270,45 @@ private:
     void removeQueuedEntities();
 
     ///////////////////////////////////////////////////////////
+    /// \brief Add component to entity implementation, does not handle thread safety for original
+    /// entity group
+    ///////////////////////////////////////////////////////////
+    void addComponent(
+        EntityGroup* group,
+        EntityId id,
+        std::type_index type,
+        void* component,
+        size_t size,
+        size_t align
+    );
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Remove component from entity implementation, does not handle thread safety for
+    /// original entity group
+    ///////////////////////////////////////////////////////////
+    void removeComponent(EntityGroup* group, EntityId id, std::type_index type);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Handles sending enter and exit queries
+    ///////////////////////////////////////////////////////////
+    void dispatchEntityChangeEvents(
+        EntityId id,
+        const HashMap<std::type_index, void*>& ptrs,
+        EntityGroup* oldGroup,
+        EntityGroup* newGroup
+    );
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Apply queued entity creation
+    ///////////////////////////////////////////////////////////
+    void addQueuedEntities();
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Apply queued component changes
+    ///////////////////////////////////////////////////////////
+    void changeQueuedEntities();
+
+    ///////////////////////////////////////////////////////////
     /// \brief Check if query matches for an entity group
     ///
     /// Internal method that determines if a query matches the
@@ -283,6 +339,11 @@ private:
     );
 
     ///////////////////////////////////////////////////////////
+    /// \brief Register observer so that dispatching events is faster
+    ///////////////////////////////////////////////////////////
+    void registerObserver(Observer* observer);
+
+    ///////////////////////////////////////////////////////////
     /// \brief Register query so that it can properly find components and entities
     ///
     /// Internal method that registers a query with the world and
@@ -301,7 +362,11 @@ private:
     SharedMutex m_groupsMutex;          //!< Mutex protecting access to entity groups
     HandleArray<EntityData> m_entities; //!< Array of entity data mapping IDs to groups and indices
     HashMap<EntityGroupId, std::unique_ptr<EntityGroup>>
-        m_groups;               //!< Map of group IDs to entity groups
+        m_groups; //!< Map of group IDs to entity groups
+
+    // Deferred operations
+    std::vector<EntityFactory*> m_addQueue;     //!< List of entities to add
+    std::vector<ComponentChange> m_changeQueue; //!< List of component changes to apply
     uint32_t m_numRemoveQueued; //!< Tracks number of entities queued for removal for optimization
 
     // Observers
@@ -310,6 +375,7 @@ private:
     std::vector<Observer*>
         m_observers[EntityEventType::NUM_EVENTS]; //!< Lists of observers for each event type
 
+    // Queries
     TypePool<QueryFactory> m_queryPool;         //!< Pool allocator for query factories
     HashMap<uint32_t, QueryFactory*> m_queries; //!< Map of query hash to query factory for reuse
 };
@@ -317,6 +383,7 @@ private:
 } // namespace ply
 
 #include <ply/ecs/Entity.inl>
+#include <ply/ecs/Observer.inl>
 #include <ply/ecs/QueryFactory.inl>
 #include <ply/ecs/World.inl>
 

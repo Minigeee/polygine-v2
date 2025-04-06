@@ -18,6 +18,8 @@ class EntityGroup;
 ///
 ///////////////////////////////////////////////////////////
 class EntityFactory {
+    friend World;
+
 public:
     ///////////////////////////////////////////////////////////
     /// \brief Constructor
@@ -116,7 +118,7 @@ private:
     /// \return A map of component type to pointers to start locations of new
     /// components
     ///////////////////////////////////////////////////////////
-    std::vector<EntityId> createImpl(uint32_t num, HashMap<std::type_index, void*>& ptrs);
+    std::vector<EntityId> createImpl(uint32_t num, HashMap<std::type_index, void*>& ptrs, bool allowDefer = true);
 
     ///////////////////////////////////////////////////////////
     /// \brief Send entity event
@@ -127,7 +129,8 @@ private:
     World* m_world;       //!< A pointer to the scene the builder belongs to
     EntityGroup* m_group; //!< The group the entities will be added to
     HashMap<std::type_index, priv::ComponentMetadata>
-        m_components; //!< Map of component types to their instantiated data
+        m_components;     //!< Map of component types to their instantiated data
+    uint32_t m_numCreate; //!< Number of entities to create (used for deferred creation)
 
     static HashMap<std::type_index, ObjectPool>
         s_pools; //!< Map of component types to their temp allocator
