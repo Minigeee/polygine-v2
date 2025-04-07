@@ -1,9 +1,12 @@
+#include <ply/EntryPoint.h>
+
 #include <ply/core/HandleArray.h>
 #include <ply/core/Scheduler.h>
 #include <ply/core/Sleep.h>
 #include <ply/core/Types.h>
 #include <ply/ecs/World.h>
 #include <ply/engine/Events.h>
+#include <ply/engine/Window.h>
 
 #include <iostream>
 
@@ -43,22 +46,13 @@ void ecsTest() {
             world.entity().add(Velocity{1.0f, 0.0f, 0.0f}).create();
         });
 
-    ply::System* a = world.system()
-        .match<Position>()
-        .each([](ply::QueryIterator it, Position& pos) {
-            printf("a\n");
-        });
-    ply::System* b = world.system()
-        .before(a)
-        .match<Position>()
-        .each([](ply::QueryIterator it, Position& pos) {
-            printf("b\n");
-        });
-    world.system()
-        .after(b)
-        .each([](ply::QueryIterator it) {
-            printf("c\n");
-        });
+    ply::System* a = world.system().match<Position>().each(
+        [](ply::QueryIterator it, Position& pos) { printf("a\n"); }
+    );
+    ply::System* b = world.system().before(a).match<Position>().each(
+        [](ply::QueryIterator it, Position& pos) { printf("b\n"); }
+    );
+    world.system().after(b).each([](ply::QueryIterator it) { printf("c\n"); });
 
     auto entities =
         world.entity().add(Position{0.0f, 1.0f, 0.0f}).create([](Position& pos) { pos.z = 2.5f; });
@@ -96,20 +90,26 @@ void schedulerTest() {
     scheduler.setNumWorkers(4);
 
     auto barrier = scheduler.barrier();
-    auto taskA = barrier.add([]() { ply::sleep(1.0f); std::cout << "a\n"; });
+    auto taskA = barrier.add([]() {
+        ply::sleep(1.0f);
+        std::cout << "a\n";
+    });
     barrier.add([]() { std::cout << "b\n"; }, {taskA.getHandle()});
     barrier.wait();
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     // WIP :
-    // - [X] Implement enter/exit dispatcher
-    // - [ ] Implement deferred component change processor
-    // - [ ] Implement entity create defer option
-    // - [ ] Implement deferred entity create processor
 
-    ecsTest();
+    // ecsTest();
     // schedulerTest();
+
+    ply::Window window;
+    window.create(800, 600, "Window");
+
+    while (!window.shouldClose()) {
+        ply::Window::poll();
+    }
 
     return 0;
 }

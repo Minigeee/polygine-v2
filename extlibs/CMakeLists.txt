@@ -45,3 +45,7 @@ CPMAddPackage("gh:g-truc/glm#master")
 target_include_directories(polygine PUBLIC
     $<BUILD_INTERFACE:${glm_SOURCE_DIR}>
     $<INSTALL_INTERFACE:include>)
+
+# sdl
+CPMAddPackage("gh:libsdl-org/SDL#main")
+target_link_libraries(polygine PUBLIC SDL3::SDL3)

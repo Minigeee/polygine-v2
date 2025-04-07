@@ -17,6 +17,10 @@ BinPackParameters: false
 AlignAfterOpenBracket: BlockIndent
 AllowAllParametersOfDeclarationOnNextLine: false
 ExperimentalAutoDetectBinPacking: false
+AllowAllArgumentsOnNextLine: false
+
+# Method chaining settings
+PenaltyIndentedWhitespace: 1
 
 # Ternary operator wrapping
 BreakBeforeTernaryOperators: true
