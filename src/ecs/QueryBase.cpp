@@ -1,4 +1,4 @@
-#include <ply/ecs/QueryFactory.h>
+#include <ply/ecs/QueryBase.h>
 
 #include <ply/ecs/Query.h>
 #include <ply/ecs/World.h>
@@ -26,13 +26,15 @@ QueryIterator::QueryIterator(
     uint32_t _index,
     World* world,
     EntityGroup* group,
-    uint32_t entityIdx
+    uint32_t entityIdx,
+    float _dt
 )
     : QueryAccessor(world, group, _id, entityIdx),
-      index(_index) {}
+      index(_index),
+      dt(_dt) {}
 
 ///////////////////////////////////////////////////////////
-uint32_t QueryDescriptor::getHash() const {
+uint32_t QueryBase::getHash() const {
     // Use group hash as base
     uint32_t base = entityGroupHash(m_include);
 
@@ -44,7 +46,7 @@ uint32_t QueryDescriptor::getHash() const {
 }
 
 ///////////////////////////////////////////////////////////
-void QueryDescriptor::addInclude(const std::type_index& type) {
+void QueryBase::addInclude(const std::type_index& type) {
     // Check if the list already has type
     bool alreadyContains = false;
     for (auto t : m_include)
@@ -56,7 +58,7 @@ void QueryDescriptor::addInclude(const std::type_index& type) {
 }
 
 ///////////////////////////////////////////////////////////
-void QueryDescriptor::addExclude(const std::type_index& type) {
+void QueryBase::addExclude(const std::type_index& type) {
     // Check if the list already has type
     bool alreadyContains = false;
     for (auto t : m_exclude)
@@ -65,46 +67,6 @@ void QueryDescriptor::addExclude(const std::type_index& type) {
     // Only add if it doesn't
     if (!alreadyContains)
         m_exclude.push_back(type);
-}
-
-///////////////////////////////////////////////////////////
-QueryFactory::QueryFactory(World* world) : m_world(world) {}
-
-///////////////////////////////////////////////////////////
-QueryFactory& QueryFactory::lock(std::mutex& mutex) {
-    m_mutexes.push_back(&mutex);
-    return *this;
-}
-
-///////////////////////////////////////////////////////////
-QueryFactory& QueryFactory::match(const TypeSet& include) {
-    // Clear includes
-    m_include.clear();
-
-    // Add all from set
-    for (auto type : include.getSet())
-        m_include.push_back(type);
-
-    return *this;
-}
-
-///////////////////////////////////////////////////////////
-QueryFactory& QueryFactory::exclude(const TypeSet& exclude) {
-    // Clear excludes
-    m_exclude.clear();
-
-    // Add all from set
-    for (auto type : exclude.getSet())
-        m_exclude.push_back(type);
-
-    return *this;
-}
-
-///////////////////////////////////////////////////////////
-Query QueryFactory::compile() {
-    // Register query
-    QueryFactory* q = m_world->registerQuery(this);
-    return Query(m_world, q);
 }
 
 } // namespace ply

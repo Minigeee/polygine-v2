@@ -1,7 +1,21 @@
+#pragma once
+
 #include <ply/core/Tuple.h>
 #include <ply/ecs/World.h>
 
 namespace ply {
+
+///////////////////////////////////////////////////////////
+template <ComponentType... Cs> QueryFactory& QueryFactory::match() {
+    PARAM_EXPAND(addInclude(typeid(Cs)));
+    return *this;
+}
+
+///////////////////////////////////////////////////////////
+template <ComponentType... Cs> QueryFactory& QueryFactory::exclude() {
+    PARAM_EXPAND(addExclude(typeid(Cs)));
+    return *this;
+}
 
 ///////////////////////////////////////////////////////////
 template <typename Func> void Query::each(Func&& fn) {
@@ -51,7 +65,9 @@ void Query::iterate(Func&& fn, type_wrapper<std::tuple<Cs...>>) {
         // Iterate number of entities, passing each component and id
         for (size_t i = 0; i < group.m_entities.size(); ++i) {
             if constexpr (std::is_same_v<DecayedType, QueryIterator>) {
-                QueryIterator it(group.m_entities[i], cum + i, m_world, &group, i);
+                QueryIterator it(
+                    group.m_entities[i], cum + i, m_world, &group, i, m_world->m_elapsed
+                );
                 fn(it, tuple.template get<Cs*>()[i]...);
             } else if constexpr (std::is_same_v<DecayedType, EntityId>)
                 fn(group.m_entities[i], tuple.template get<Cs*>()[i]...);

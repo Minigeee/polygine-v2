@@ -7,18 +7,22 @@
 #include <ply/core/Clock.h>
 #include <ply/core/HandleArray.h>
 #include <ply/core/Mutex.h>
+#include <ply/core/Scheduler.h>
 #include <ply/ecs/Entity.h>
 #include <ply/ecs/EntityFactory.h>
 #include <ply/ecs/EntityGroup.h>
 #include <ply/ecs/Observer.h>
-#include <ply/ecs/QueryFactory.h>
+#include <ply/ecs/Query.h>
+#include <ply/ecs/QueryBase.h>
+#include <ply/ecs/System.h>
 
 #include <memory>
 #include <typeindex>
 
 namespace ply {
 
-class Query;
+class QueryFactory;
+class Observer;
 
 ///////////////////////////////////////////////////////////
 /// \brief ECS World
@@ -69,6 +73,7 @@ class World {
     friend class QueryFactory;
     friend class Query;
     friend class Observer;
+    friend class System;
 
 public:
     ///////////////////////////////////////////////////////////
@@ -108,6 +113,10 @@ public:
     /// a fluent interface to add components and then create one or
     /// more entities with the same component structure.
     ///
+    /// The entity will be created immediately if the entity's group is
+    /// not locked by another operation. Otherwise, the entity will be
+    /// created during the next call to tick().
+    ///
     /// Usage example:
     /// \code
     /// auto ids = world.entity()
@@ -122,15 +131,12 @@ public:
     EntityFactory entity();
 
     ///////////////////////////////////////////////////////////
-    /// \brief Queue an entity for removal
+    /// \brief Remove an entity
     ///
-    /// Removing entities while component data is being processed
-    /// can lead to unpredictable behavior, so entities
-    /// must be queued for removal instead.
-    ///
-    /// The queued entities can then all be removed at once
-    /// at a later time, most often at the end of the update frame.
-    /// tick() must be called to remove queued entities.
+    /// Remove the entity from the world. The entity will be removed immediately
+    /// if the entity's group is not locked by another operation. Otherwise, the
+    /// entity will be marked for removal and will be removed during the next call
+    /// to tick().
     ///
     /// \param id The id of the entity to remove
     ///
@@ -154,8 +160,40 @@ public:
     ///////////////////////////////////////////////////////////
     Entity getEntity(EntityId id);
 
+    ///////////////////////////////////////////////////////////
+    /// \brief Add a component to an existing entity
+    ///
+    /// Adds a component of type C to the specified entity. If the entity
+    /// already has a component of this type, it will be replaced.
+    /// 
+    /// This operation may be deferred if the entity's group is currently
+    /// locked by another operation. In that case, the component will be
+    /// added during the next call to tick().
+    ///
+    /// \param id The id of the entity to add the component to
+    /// \param component The component to add
+    ///
+    /// \tparam C The component type (must satisfy ComponentType concept)
+    ///
+    ///////////////////////////////////////////////////////////
     template <ComponentType C> void addComponent(EntityId id, const C& component);
 
+    ///////////////////////////////////////////////////////////
+    /// \brief Remove a component from an existing entity
+    ///
+    /// Removes a component of type C from the specified entity.
+    /// If the entity doesn't have this component type, this operation
+    /// has no effect.
+    ///
+    /// This operation may be deferred if the entity's group is currently
+    /// locked by another operation. In that case, the component will be
+    /// removed during the next call to tick().
+    ///
+    /// \param id The id of the entity to remove the component from
+    ///
+    /// \tparam C The component type to remove (must satisfy ComponentType concept)
+    ///
+    ///////////////////////////////////////////////////////////
     template <ComponentType C> void removeComponent(EntityId id);
 
     ///////////////////////////////////////////////////////////
@@ -177,10 +215,62 @@ public:
     ///
     /// \param type The type of entity event to observe
     ///
-    /// \return An Observer for the specified event type
+    /// \return An observer for the specified event type
     ///
     ///////////////////////////////////////////////////////////
     Observer& observer(EntityEventType type);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Remove an observer from the world
+    ///
+    /// Removes the specified observer from the world and frees its
+    /// resources. After this call, the observer pointer is no longer valid.
+    ///
+    /// \param observer Pointer to the observer to remove
+    ///
+    ///////////////////////////////////////////////////////////
+    void removeObserver(Observer* observer);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Get a system for processing entities
+    ///
+    /// Returns a System that can be configured to process entities
+    /// based on component types. Systems can filter entities based
+    /// on which components they have or don't have.
+    ///
+    /// Systems can be assigned dependencies and dependents to control
+    /// the order in which they are executed.
+    ///
+    /// Usage example:
+    /// \code
+    /// System* s = world.system()
+    ///     .after(dependency)
+    ///     .before(dependent)
+    ///     .match<Position, Velocity>()
+    ///     .each([](QueryIterator it, Position& pos, Velocity& vel) {
+    ///         pos.x += vel.x;
+    ///         pos.y += vel.y;
+    ///     });
+    /// \endcode
+    ///
+    /// \note You can add a system without any query specifiers to add a system that runs
+    /// every tick without having to process any entities
+    ///
+    /// \return A system for processing entities
+    ///
+    ///////////////////////////////////////////////////////////
+    System& system();
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Remove a system from the world
+    ///
+    /// Removes the specified system from the world and frees its
+    /// resources. After this call, the system pointer is no longer valid.
+    ///
+    /// \param system Pointer to the system to remove
+    ///
+    ///////////////////////////////////////////////////////////
+    void removeSystem(System* system);
 
     ///////////////////////////////////////////////////////////
     /// \brief Create a query factory for building entity queries
@@ -207,7 +297,32 @@ public:
     ///////////////////////////////////////////////////////////
     QueryFactory query();
 
+    ///////////////////////////////////////////////////////////
+    /// \brief Update the world for a single frame
+    ///
+    /// This function performs all necessary updates for a single frame:
+    /// 1. Updates the elapsed time since the last frame
+    /// 2. Executes all systems in their dependency order
+    /// 3. Processes entity removals that were queued
+    /// 4. Processes entity creations that were queued
+    /// 5. Processes component changes that were queued
+    ///
+    /// This should be called once per frame in your game loop.
+    ///
+    ///////////////////////////////////////////////////////////
     void tick();
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Set the scheduler for system execution
+    ///
+    /// Sets the scheduler that will be used to execute systems.
+    /// The scheduler is responsible for managing parallel execution
+    /// of systems based on their dependencies.
+    ///
+    /// \param scheduler Pointer to the scheduler to use
+    ///
+    ///////////////////////////////////////////////////////////
+    void setScheduler(Scheduler* scheduler);
 
 private:
     ///////////////////////////////////////////////////////////
@@ -234,6 +349,13 @@ private:
         void* m_component;      //!< Component to add or NULL for remove
         size_t m_size;          //!< Type size
         size_t m_align;         //!< Type alignment
+    };
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Structure to hold optimized system data for execution
+    ///////////////////////////////////////////////////////////
+    struct OptimizedSystemLayer {
+        std::vector<System*> m_systems; // Systems that can run in parallel
     };
 
     ///////////////////////////////////////////////////////////
@@ -309,6 +431,21 @@ private:
     void changeQueuedEntities();
 
     ///////////////////////////////////////////////////////////
+    /// \brief Execute all registered systems
+    ///////////////////////////////////////////////////////////
+    void executeSystems();
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Execute a single system
+    ///////////////////////////////////////////////////////////
+    void executeSystem(System* system);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Build optimized systems
+    ///////////////////////////////////////////////////////////
+    void buildOptimizedSystems();
+
+    ///////////////////////////////////////////////////////////
     /// \brief Check if query matches for an entity group
     ///
     /// Internal method that determines if a query matches the
@@ -322,7 +459,7 @@ private:
     /// \return True if the query could match entities in the group
     ///
     ///////////////////////////////////////////////////////////
-    bool matchesForGroup(EntityGroup& group, QueryDescriptor* query);
+    bool matchesForGroup(EntityGroup& group, QueryBase* query);
 
     ///////////////////////////////////////////////////////////
     /// \brief Get or create entity group
@@ -342,6 +479,11 @@ private:
     /// \brief Register observer so that dispatching events is faster
     ///////////////////////////////////////////////////////////
     void registerObserver(Observer* observer);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Register system so that iteration is faster
+    ///////////////////////////////////////////////////////////
+    void registerSystem(System* system);
 
     ///////////////////////////////////////////////////////////
     /// \brief Register query so that it can properly find components and entities
@@ -375,17 +517,28 @@ private:
     std::vector<Observer*>
         m_observers[EntityEventType::NUM_EVENTS]; //!< Lists of observers for each event type
 
+    // Systems
+    Scheduler* m_scheduler;         //!< Scheduler for executing systems
+    TypePool<System> m_systemPool;  //!< Pool allocator for systems to reduce memory fragmentation
+    std::vector<System*> m_systems; //!< Systems
+    std::vector<OptimizedSystemLayer> m_optimizedSystems; //!< Optimized system layers
+    bool m_systemsDirty;                                  //!< Have systems been added or removed
+
     // Queries
     TypePool<QueryFactory> m_queryPool;         //!< Pool allocator for query factories
     HashMap<uint32_t, QueryFactory*> m_queries; //!< Map of query hash to query factory for reuse
+
+    // Time
+    Clock m_clock;      //!< Clock used for time management
+    float m_elapsed;    //!< Time elapsed since last frame
+    bool m_isFirstTick; //!< Flag to track first tick
 };
 
 } // namespace ply
 
 #include <ply/ecs/Entity.inl>
 #include <ply/ecs/Observer.inl>
-#include <ply/ecs/QueryFactory.inl>
+#include <ply/ecs/Query.inl>
+#include <ply/ecs/QueryBase.inl>
+#include <ply/ecs/System.inl>
 #include <ply/ecs/World.inl>
-
-// Include so that .cpp files have access to the function w/o having to use extra includes
-#include <ply/ecs/Query.h>

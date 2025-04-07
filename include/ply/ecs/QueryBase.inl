@@ -1,8 +1,7 @@
 #pragma once
 
+#include <ply/ecs/World.h>
 #include <loguru.hpp>
-#include <ply/core/Macros.h>
-#include <ply/core/Tuple.h>
 
 namespace ply {
 
@@ -28,18 +27,6 @@ template <ComponentType C> void QueryAccessor::add(const C& component) {
 ///////////////////////////////////////////////////////////
 template <ComponentType C> void QueryAccessor::remove() {
     m_world->removeComponent<C>(id);
-}
-
-///////////////////////////////////////////////////////////
-template <ComponentType... Cs> QueryFactory& QueryFactory::match() {
-    PARAM_EXPAND(addInclude(typeid(Cs)));
-    return *this;
-}
-
-///////////////////////////////////////////////////////////
-template <ComponentType... Cs> QueryFactory& QueryFactory::exclude() {
-    PARAM_EXPAND(addExclude(typeid(Cs)));
-    return *this;
 }
 
 } // namespace ply

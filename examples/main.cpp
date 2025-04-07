@@ -1,5 +1,8 @@
 #include <ply/core/HandleArray.h>
+#include <ply/core/Scheduler.h>
+#include <ply/core/Sleep.h>
 #include <ply/core/Types.h>
+#include <ply/ecs/World.h>
 #include <ply/engine/Events.h>
 
 #include <iostream>
@@ -12,17 +15,13 @@ struct Velocity {
     float x, y, z;
 };
 
-#include <ply/ecs/World.h>
+void ecsTest() {
+    ply::Scheduler scheduler;
+    scheduler.setNumWorkers(4);
 
-void test(int x, float y) {}
-using Test = typename std::conditional_t<
-    false,
-    rest_param_types<std::decay_t<decltype(test)>>::type,
-    param_types<std::decay_t<decltype(test)>>::type>;
-
-int main() {
     ply::EventSystem events;
     ply::World world;
+    world.setScheduler(&scheduler);
 
     world.observer(ply::World::OnCreate)
         .match<Position>()
@@ -42,6 +41,23 @@ int main() {
         .each([&world](ply::QueryIterator it, const Velocity& vel) {
             printf("enter velocity query\n");
             world.entity().add(Velocity{1.0f, 0.0f, 0.0f}).create();
+        });
+
+    ply::System* a = world.system()
+        .match<Position>()
+        .each([](ply::QueryIterator it, Position& pos) {
+            printf("a\n");
+        });
+    ply::System* b = world.system()
+        .before(a)
+        .match<Position>()
+        .each([](ply::QueryIterator it, Position& pos) {
+            printf("b\n");
+        });
+    world.system()
+        .after(b)
+        .each([](ply::QueryIterator it) {
+            printf("c\n");
         });
 
     auto entities =
@@ -70,17 +86,30 @@ int main() {
 
     events.addListener<Position>([](const Position& pos) { std::cout << "received pos event\n"; });
 
-    std::cout << "Hello, World!\n";
-
     world.tick();
 
     events.poll();
+}
 
+void schedulerTest() {
+    ply::Scheduler scheduler;
+    scheduler.setNumWorkers(4);
+
+    auto barrier = scheduler.barrier();
+    auto taskA = barrier.add([]() { ply::sleep(1.0f); std::cout << "a\n"; });
+    barrier.add([]() { std::cout << "b\n"; }, {taskA.getHandle()});
+    barrier.wait();
+}
+
+int main() {
     // WIP :
     // - [X] Implement enter/exit dispatcher
     // - [ ] Implement deferred component change processor
     // - [ ] Implement entity create defer option
     // - [ ] Implement deferred entity create processor
+
+    ecsTest();
+    // schedulerTest();
 
     return 0;
 }

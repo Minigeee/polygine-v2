@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ply/ecs/QueryFactory.h>
+#include <ply/ecs/QueryBase.h>
 #include <ply/ecs/Types.h>
 
 namespace ply {
@@ -8,16 +8,20 @@ namespace ply {
 class World;
 class EntityGroup;
 
-class Observer : public QueryDescriptor {
+class Observer : public QueryBase {
     friend World;
 
 public:
     using IteratorFn = std::function<
-        void(const std::vector<EntityId>&, const HashMap<std::type_index, void*>&, World*, EntityGroup*)>;
+        void(const std::vector<EntityId>&, const HashMap<std::type_index, void*>&, World*, EntityGroup*, float)>;
 
 public:
     Observer() = default;
     Observer(World* world);
+    Observer(const Observer& other) = delete;
+    Observer(Observer&& other) = delete;
+    Observer& operator=(const Observer& other) = delete;
+    Observer& operator=(Observer&& other) = delete;
 
     ///////////////////////////////////////////////////////////
     /// \brief Add a mutex to lock before iterating comopnents
@@ -58,15 +62,15 @@ public:
     template <ComponentType... Cs> Observer& exclude();
 
     ///////////////////////////////////////////////////////////
-    /// \brief Set the function that will get called on all entities that match the observer query
+    /// \brief Set the function that will get called on all entities that match the Observer query
     ///
     ///////////////////////////////////////////////////////////
-    template <typename Func> void each(Func&& fn);
+    template <typename Func> Observer* each(Func&& fn);
 
 private:
-    World* m_world;                       //!< World the observer is attached to
+    World* m_world;                       //!< World the Observer is attached to
     IteratorFn m_iterator;                //!< The function that will get called
-    HashSet<EntityGroupId> m_watchGroups; //!< The set of groups the observer should watch
+    HashSet<EntityGroupId> m_watchGroups; //!< The set of groups the Observer should watch
 };
 
 } // namespace ply

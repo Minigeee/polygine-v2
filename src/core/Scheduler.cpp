@@ -5,14 +5,10 @@
 namespace ply {
 
 ///////////////////////////////////////////////////////////
-Scheduler::Scheduler() : m_numBusy(0),
-                         m_numStopped(0),
-                         m_shouldStop(false) {
-}
+Scheduler::Scheduler() : m_numBusy(0), m_numStopped(0), m_shouldStop(false) {}
 
 ///////////////////////////////////////////////////////////
-Scheduler::Scheduler(uint32_t numWorkers) : m_numBusy(0),
-                                            m_shouldStop(false) {
+Scheduler::Scheduler(uint32_t numWorkers) : m_numBusy(0), m_shouldStop(false) {
     for (uint32_t i = 0; i < numWorkers; ++i)
         m_threads.push_back(std::thread(&Scheduler::workerLoop, this, i));
 
@@ -28,6 +24,25 @@ Scheduler::Scheduler(uint32_t numWorkers) : m_numBusy(0),
 Scheduler::~Scheduler() {
     // Automatically stop on destructor
     stop();
+}
+
+///////////////////////////////////////////////////////////
+priv::TaskStateBase* Scheduler::getNextTask(std::deque<priv::TaskStateBase*>& queue) {
+    for (auto it = queue.begin(); it != queue.end(); ++it) {
+        // Pop from back until run into a task that is not finished
+        auto& deps = (*it)->m_dependencies;
+        while (deps.size() > 0 &&
+               reinterpret_cast<priv::TaskStateBase*>(deps.back())->m_isDone)
+            deps.pop_back();
+
+        // At this point, if is finished, return it
+        if (deps.size() == 0) {
+            queue.erase(it);
+            return *it;
+        }
+    }
+
+    return NULL;
 }
 
 ///////////////////////////////////////////////////////////
@@ -59,21 +74,17 @@ void Scheduler::workerLoop(uint32_t id) {
             }
 
             // Get the next function, based on priority, by moving and popping
-            // Use std::move because its faster
-            if (m_queue[0].size()) {
-                state = m_queue[0].front();
-                m_queue[0].pop();
-            } else if (m_queue[1].size()) {
-                state = m_queue[1].front();
-                m_queue[1].pop();
-            } else {
-                state = m_queue[2].front();
-                m_queue[2].pop();
-            }
+            if (m_queue[0].size())
+                state = getNextTask(m_queue[0]);
+            if (!state && m_queue[1].size())
+                state = getNextTask(m_queue[1]);
+            if (!state && m_queue[2].size())
+                state = getNextTask(m_queue[2]);
         }
 
         // Run the function
-        (*state)();
+        if (state)
+            (*state)();
     }
 
     // Once done, increment the stopped counter
@@ -97,7 +108,7 @@ void Scheduler::stop() {
 
         for (int i = 0; i < 3; ++i) {
             while (!m_queue[i].empty())
-                m_queue[i].pop();
+                m_queue[i].pop_front();
         }
 
         // Wait until all threads are waiting
@@ -155,8 +166,7 @@ uint32_t Scheduler::getNumWorkers() {
 }
 
 ///////////////////////////////////////////////////////////
-Barrier::Barrier() : m_scheduler(NULL) {
-}
+Barrier::Barrier() : m_scheduler(NULL) {}
 
 ///////////////////////////////////////////////////////////
 Barrier::Barrier(Scheduler* scheduler, size_t numTasks) : m_scheduler(scheduler) {
@@ -174,13 +184,19 @@ Barrier::~Barrier() {
 }
 
 ///////////////////////////////////////////////////////////
+void Barrier::add(TaskHandle handle) {
+    // Add to own list
+    m_tasks.push_back((priv::TaskStateBase*)handle);
+}
+
+///////////////////////////////////////////////////////////
 void Barrier::wait() {
     std::unique_lock<std::mutex> lock(m_scheduler->m_mutex);
 
     // Keep waiting until number of busy threads is 0 and the size of queue is 0
     while (m_tasks.size() > 0) {
         // Pop from back until run into a task that is not finished
-        while (m_tasks.size() > 0 && m_tasks.back()->m_refCount == 1)
+        while (m_tasks.size() > 0 && m_tasks.back()->m_isDone)
             m_tasks.pop_back();
 
         // Wait for another task to finish (only if there are any tasks left)
@@ -189,4 +205,4 @@ void Barrier::wait() {
     }
 }
 
-}  // namespace ply
+} // namespace ply

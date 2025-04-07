@@ -1,11 +1,12 @@
 #include <ply/ecs/World.h>
 
 #include <loguru.hpp>
+#include <queue>
 
 namespace ply {
 
 ///////////////////////////////////////////////////////////
-World::World() : m_numRemoveQueued(0) {
+World::World() : m_numRemoveQueued(0), m_elapsed(0), m_isFirstTick(true), m_scheduler(NULL) {
     // Set up dummy entity
     EntityId id = m_entities.push(EntityData());
     m_entities.remove(id);
@@ -214,6 +215,47 @@ Observer& World::observer(EntityEventType type) {
 }
 
 ///////////////////////////////////////////////////////////
+void World::removeObserver(Observer* observer) {
+    // Remove from list
+    for (int i = 0; i < NUM_EVENTS; ++i) {
+        auto it = std::find(m_observers[i].begin(), m_observers[i].end(), observer);
+        if (it != m_observers[i].end()) {
+            m_observers[i].erase(it);
+            m_observerPool.free(observer);
+            return;
+        }
+    }
+
+    // Try free regardless
+    m_observerPool.free(observer);
+}
+
+///////////////////////////////////////////////////////////
+System& World::system() {
+    System* system = m_systemPool.alloc();
+    system->m_world = this;
+
+    m_systems.push_back(system);
+    return *system;
+}
+
+///////////////////////////////////////////////////////////
+void World::removeSystem(System* system) {
+    // Remove from list
+    auto it = std::find(m_systems.begin(), m_systems.end(), system);
+    if (it == m_systems.end())
+        return;
+
+    m_systems.erase(it);
+
+    // Free
+    m_systemPool.free(system);
+
+    // Mark systems as dirty
+    m_systemsDirty = true;
+}
+
+///////////////////////////////////////////////////////////
 EntityFactory World::entity() {
     return EntityFactory(this);
 }
@@ -225,10 +267,29 @@ QueryFactory World::query() {
 
 ///////////////////////////////////////////////////////////
 void World::tick() {
+    // Time
+    if (m_isFirstTick) {
+        m_clock.restart();
+        m_isFirstTick = false;
+    }
+
+    m_elapsed = m_clock.restart().toSeconds();
+
+    // Systems
+    executeSystems();
+
+    // Entity management
     removeQueuedEntities();
     addQueuedEntities();
     changeQueuedEntities();
 }
+
+///////////////////////////////////////////////////////////
+void World::setScheduler(Scheduler* scheduler) {
+    m_scheduler = scheduler;
+}
+
+#pragma region Private
 
 ///////////////////////////////////////////////////////////
 void World::addComponent(
@@ -428,7 +489,7 @@ void World::dispatchEntityChangeEvents(
                 locks.push_back(std::unique_lock<std::mutex>(*q.m_mutexes[m]));
 
             // Invoke observer
-            q.m_iterator({id}, ptrs, this, newGroup);
+            q.m_iterator({id}, ptrs, this, newGroup, m_elapsed);
         }
     }
 
@@ -444,7 +505,7 @@ void World::dispatchEntityChangeEvents(
                 locks.push_back(std::unique_lock<std::mutex>(*q.m_mutexes[m]));
 
             // Invoke observer
-            q.m_iterator({id}, ptrs, this, newGroup);
+            q.m_iterator({id}, ptrs, this, newGroup, m_elapsed);
         }
     }
 }
@@ -506,6 +567,181 @@ void World::changeQueuedEntities() {
 }
 
 ///////////////////////////////////////////////////////////
+void World::executeSystems() {
+    // Build optimized systems if needed
+    if (m_systemsDirty) {
+        buildOptimizedSystems();
+        m_systemsDirty = false;
+    }
+
+    // Single thread
+    if (!m_scheduler) {
+        // Iterate through each layer
+        for (const auto& layer : m_optimizedSystems) {
+            // Execute each system in the layer
+            for (System* system : layer.m_systems) {
+                // Run the system's iterator function
+                executeSystem(system);
+            }
+        }
+    }
+
+    // Multi thread
+    else {
+        // Create a barrier with the scheduler
+        auto barrier = m_scheduler->barrier(m_systems.size());
+
+        // Maps systems to their task handles in the scheduler
+        HashMap<System*, TaskHandle> taskHandles;
+
+        // Process each layer
+        for (const auto& layer : m_optimizedSystems) {
+            // For each system in the current layer
+            for (System* system : layer.m_systems) {
+                // Get dependencies for this system
+                std::vector<TaskHandle> systemDependencies;
+                systemDependencies.reserve(system->m_dependencies.size());
+
+                // Add task dependencies from previous layers
+                for (const auto& dep : system->m_dependencies) {
+                    auto it = taskHandles.find(dep);
+                    if (it != taskHandles.end()) {
+                        systemDependencies.push_back(it->second);
+                    }
+                }
+
+                // Add task to scheduler with dependencies
+                auto task =
+                    barrier.add(std::bind(&World::executeSystem, this, system), systemDependencies);
+
+                // Store task handle for future dependencies
+                taskHandles[system] = task.getHandle();
+            }
+        }
+
+        // Wait for all tasks to complete
+        barrier.wait();
+    }
+}
+
+///////////////////////////////////////////////////////////
+void World::executeSystem(System* system) {
+    System& q = *system;
+
+    // Lock mutexes if provided
+    std::vector<std::unique_lock<std::mutex>> locks;
+    locks.reserve(q.m_mutexes.size());
+    for (size_t m = 0; m < q.m_mutexes.size(); ++m)
+        locks.push_back(std::unique_lock<std::mutex>(*q.m_mutexes[m]));
+
+    // Special type of system
+    if (q.m_include.empty() && q.m_exclude.empty()) {
+        // Iterate through no groups, just invoke once
+        q.m_iterator({Handle()}, {}, this, nullptr, m_elapsed);
+        return;
+    }
+
+    // Iterate through groups that match system query
+    for (auto it = q.m_groups.begin(); it != q.m_groups.end(); ++it) {
+        // Get group
+        EntityGroup* group = NULL;
+        {
+            ReadLock lock(m_groupsMutex);
+            group = m_groups.find(*it).value().get();
+        }
+        if (!group)
+            continue;
+
+        ReadLock lock(group->m_mutex);
+
+        // Map of component pointers
+        HashMap<std::type_index, void*> ptrs;
+        for (auto it = group->m_components.begin(); it != group->m_components.end(); ++it)
+            ptrs[it.key()] = it.value().data();
+
+        // Invoke system
+        q.m_iterator(group->m_entities, ptrs, this, group, m_elapsed);
+    }
+}
+
+///////////////////////////////////////////////////////////
+void World::buildOptimizedSystems() {
+    // Clear previous optimized systems
+    m_optimizedSystems.clear();
+
+    // Build dependency graph
+    HashMap<System*, std::vector<System*>> graph;
+    HashMap<System*, int> inDegree;
+
+    // Initialize graph with all systems
+    for (auto system : m_systems) {
+        graph[system] = std::vector<System*>();
+        inDegree[system] = 0;
+    }
+
+    // Add dependencies
+    for (auto system : m_systems) {
+        for (auto dep : system->m_dependencies) {
+            graph[dep].push_back(system); // Dependency -> System direction
+            inDegree[system]++;
+        }
+    }
+
+    // Topological sort with layering for parallel execution
+    std::queue<System*> zeroDependencySystems;
+
+    // Start with systems that have no dependencies
+    for (const auto& pair : inDegree) {
+        if (pair.second == 0) {
+            zeroDependencySystems.push(pair.first);
+        }
+    }
+
+    // Process until we've categorized all systems
+    while (!zeroDependencySystems.empty()) {
+        // Current layer of systems with no dependencies
+        OptimizedSystemLayer currentLayer;
+        std::vector<System*> processedSystems;
+
+        // Process all systems in the current layer
+        int layerSize = zeroDependencySystems.size();
+        for (int i = 0; i < layerSize; i++) {
+            System* currentSystem = zeroDependencySystems.front();
+            zeroDependencySystems.pop();
+
+            // Add system to current layer
+            currentLayer.m_systems.push_back(currentSystem);
+            processedSystems.push_back(currentSystem);
+        }
+
+        // Update dependencies
+        for (System* system : processedSystems) {
+            for (System* dependent : graph[system]) {
+                inDegree[dependent]--;
+
+                // If all dependencies have been satisfied, add to queue
+                if (inDegree[dependent] == 0) {
+                    zeroDependencySystems.push(dependent);
+                }
+            }
+        }
+
+        // Add current layer to optimized systems
+        m_optimizedSystems.push_back(currentLayer);
+    }
+
+    // Check for cycles in dependency graph
+    int processedSystems = 0;
+    for (const auto& layer : m_optimizedSystems) {
+        processedSystems += layer.m_systems.size();
+    }
+
+    if (processedSystems != m_systems.size()) {
+        LOG_F(ERROR, "dependency cycle detected in systems");
+    }
+}
+
+///////////////////////////////////////////////////////////
 void World::sendEntityEvent(
     EntityEventType type,
     const std::vector<EntityId>& ids,
@@ -530,17 +766,17 @@ void World::sendEntityEvent(
                 locks.push_back(std::unique_lock<std::mutex>(*q.m_mutexes[m]));
 
             // Invoke observer
-            q.m_iterator(ids, ptrs, this, group);
+            q.m_iterator(ids, ptrs, this, group, m_elapsed);
         }
     }
 }
 
 ///////////////////////////////////////////////////////////
-bool World::matchesForGroup(EntityGroup& group, QueryDescriptor* query) {
-    QueryDescriptor& q = *query;
+bool World::matchesForGroup(EntityGroup& group, QueryBase* query) {
+    QueryBase& q = *query;
 
-    // Check if matches
-    bool match = true;
+    // Check if matches (if no query specifiers, never matches)
+    bool match = !(q.m_include.empty() && q.m_exclude.empty());
     for (size_t t = 0; t < q.m_include.size(); ++t)
         match &= group.m_components.contains(q.m_include[t]);
 
@@ -578,6 +814,13 @@ EntityGroup* World::getOrCreateEntityGroup(
             }
         }
 
+        // Register group with systems
+        for (size_t s = 0; s < m_systems.size(); ++s) {
+            System* system = m_systems[s];
+            if (matchesForGroup(*group, system))
+                system->m_groups.push_back(id);
+        }
+
         // Register group with queries
         for (auto it = m_queries.begin(); it != m_queries.end(); ++it) {
             QueryFactory* q = it.value();
@@ -599,6 +842,20 @@ void World::registerObserver(Observer* observer) {
         if (matchesForGroup(*group, observer))
             observer->m_watchGroups.insert(it.key());
     }
+}
+
+///////////////////////////////////////////////////////////
+void World::registerSystem(System* system) {
+    ReadLock lock(m_groupsMutex);
+
+    // Create set of groups to watch
+    for (auto it = m_groups.begin(); it != m_groups.end(); ++it) {
+        EntityGroup* group = it.value().get();
+        if (matchesForGroup(*group, system))
+            system->m_groups.push_back(it.key());
+    }
+
+    m_systemsDirty = true;
 }
 
 ///////////////////////////////////////////////////////////
@@ -625,6 +882,8 @@ QueryFactory* World::registerQuery(QueryFactory* query) {
 
     return q;
 }
+
+#pragma endregion
 
 ///////////////////////////////////////////////////////////
 World::ComponentChange::ComponentChange(EntityId id, std::type_index type)

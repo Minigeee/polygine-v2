@@ -40,6 +40,12 @@ inline Tuple<Ts...> makeTuple(Ts&&... args) {
     return Tuple<Ts...>(std::forward<Ts>(args)...);
 }
 
+// Specialization for empty tuple
+template <>
+inline Tuple<> makeTuple() {
+    return Tuple<>();
+}
+
 template <int N, typename... Ts>
 typename std::tuple_element_t<N, std::tuple<Ts...>>& get(Tuple<Ts...>& t) {
     return t.template get<typename std::tuple_element_t<N, std::tuple<Ts...>>>();

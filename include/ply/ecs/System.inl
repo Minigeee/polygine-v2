@@ -8,13 +8,13 @@
 namespace ply {
 
 ///////////////////////////////////////////////////////////
-template <ComponentType... Cs> Observer& Observer::match() {
+template <ComponentType... Cs> System& System::match() {
     PARAM_EXPAND(addInclude(typeid(Cs)));
     return *this;
 }
 
 ///////////////////////////////////////////////////////////
-template <ComponentType... Cs> Observer& Observer::exclude() {
+template <ComponentType... Cs> System& System::exclude() {
     PARAM_EXPAND(addExclude(typeid(Cs)));
     return *this;
 }
@@ -22,7 +22,7 @@ template <ComponentType... Cs> Observer& Observer::exclude() {
 ///////////////////////////////////////////////////////////
 namespace priv {
     template <typename Func, typename... Cs>
-    Observer::IteratorFn makeObserverIteratorFn(Func&& fn, type_wrapper<std::tuple<Cs...>>) {
+    System::IteratorFn makeSystemIteratorFn(Func&& fn, type_wrapper<std::tuple<Cs...>>) {
         // Get first parameter type
         using FirstParamType = typename first_param<std::decay_t<decltype(fn)>>::type;
         using DecayedType = std::remove_cv_t<std::remove_reference_t<FirstParamType>>;
@@ -54,7 +54,7 @@ namespace priv {
 }
 
 ///////////////////////////////////////////////////////////
-template <typename Func> Observer* Observer::each(Func&& fn) {
+template <typename Func> System* System::each(Func&& fn) {
     // Get first parameter type
     using FirstParamType = typename first_param<std::decay_t<decltype(fn)>>::type;
     using DecayedType = std::remove_cv_t<std::remove_reference_t<FirstParamType>>;
@@ -72,10 +72,10 @@ template <typename Func> Observer* Observer::each(Func&& fn) {
 
     // Create iterator
     m_iterator =
-        priv::makeObserverIteratorFn(std::forward<Func>(fn), type_wrapper<decayed_tuple_t<CTypes>>{});
+        priv::makeSystemIteratorFn(std::forward<Func>(fn), type_wrapper<decayed_tuple_t<CTypes>>{});
 
     // Register observer
-    m_world->registerObserver(this);
+    m_world->registerSystem(this);
 
     return this;
 }

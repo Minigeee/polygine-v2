@@ -3,87 +3,87 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <mutex>
-#include <queue>
 #include <thread>
 #include <utility>
 #include <vector>
 
 namespace ply {
 
-template <typename Ret>
-class TaskBase;
+template <typename Ret> class TaskBase;
 class Scheduler;
 class Barrier;
+
+typedef void* TaskHandle;
+typedef std::vector<TaskHandle> TaskDependencies;
 
 #ifndef DOXYGEN_SKIP
 namespace priv {
 
-///////////////////////////////////////////////////////////
-/// \brief The base class for task states
-///
-///////////////////////////////////////////////////////////
-class TaskStateBase {
-    template <typename Ret>
-    friend class TaskBase;
-    friend Barrier;
-
-   public:
     ///////////////////////////////////////////////////////////
-    /// \brief Virtual destructor
+    /// \brief The base class for task states
     ///
     ///////////////////////////////////////////////////////////
-    virtual ~TaskStateBase() {}
+    class TaskStateBase {
+        template <typename Ret> friend class TaskBase;
+        friend class TaskBase<void>;
+        friend Barrier;
+        friend Scheduler;
+
+    public:
+        ///////////////////////////////////////////////////////////
+        /// \brief Virtual destructor
+        ///
+        ///////////////////////////////////////////////////////////
+        virtual ~TaskStateBase() {}
+
+        ///////////////////////////////////////////////////////////
+        /// \brief Virtual function operator
+        ///
+        ///////////////////////////////////////////////////////////
+        virtual void operator()() = 0;
+
+    protected:
+        TaskDependencies m_dependencies; //!< A list of task dependencies
+        std::atomic_int m_refCount;      //!< A reference counter to help with lifetime management
+        std::atomic_bool m_isDone;       //!< Is task done
+    };
 
     ///////////////////////////////////////////////////////////
-    /// \brief Virtual function operator
+    /// \brief A task state base type with result type
     ///
     ///////////////////////////////////////////////////////////
-    virtual void operator()() = 0;
+    template <typename Ret> class TaskStateWithResult : public TaskStateBase {
+    public:
+        ///////////////////////////////////////////////////////////
+        /// \brief Virtual destructor
+        ///
+        ///////////////////////////////////////////////////////////
+        virtual ~TaskStateWithResult() {}
 
-   protected:
-    std::atomic_int m_refCount;  //!< A reference counter to help with lifetime management
-};
+        ///////////////////////////////////////////////////////////
+        /// \brief Get the result from the task state
+        ///
+        ///////////////////////////////////////////////////////////
+        Ret& getResult();
 
-///////////////////////////////////////////////////////////
-/// \brief A task state base type with result type
-///
-///////////////////////////////////////////////////////////
-template <typename Ret>
-class TaskStateWithResult : public TaskStateBase {
-   public:
-    ///////////////////////////////////////////////////////////
-    /// \brief Virtual destructor
-    ///
-    ///////////////////////////////////////////////////////////
-    virtual ~TaskStateWithResult() {}
+    protected:
+        Ret m_result; //!< The funtion return value
+    };
 
-    ///////////////////////////////////////////////////////////
-    /// \brief Get the result from the task state
-    ///
-    ///////////////////////////////////////////////////////////
-    Ret& getResult();
+    template <> class TaskStateWithResult<void> : public TaskStateBase {};
 
-   protected:
-    Ret m_result;  //!< The funtion return value
-};
-
-template <>
-class TaskStateWithResult<void> : public TaskStateBase {};
-
-}  // namespace priv
+} // namespace priv
 #endif
 
 ///////////////////////////////////////////////////////////
 /// \brief The base class for scheduler tasks (needed bc void is not a valid ref result type)
 ///
 ///////////////////////////////////////////////////////////
-template <typename Ret>
-class TaskBase {
-    friend Scheduler;
-
-   public:
+template <typename Ret> class TaskBase {
+public:
     ///////////////////////////////////////////////////////////
     /// \brief Default constructor
     ///
@@ -91,6 +91,12 @@ class TaskBase {
     ///
     ///////////////////////////////////////////////////////////
     TaskBase();
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Create from task handle
+    ///
+    ///////////////////////////////////////////////////////////
+    TaskBase(TaskHandle handle);
 
 #ifndef DOXYGEN_SKIP
     TaskBase(const TaskBase&) = delete;
@@ -113,17 +119,24 @@ class TaskBase {
     ///////////////////////////////////////////////////////////
     bool isDone() const;
 
-   protected:
-    priv::TaskStateWithResult<Ret>* m_state;  //!< The associated task state
+    ///////////////////////////////////////////////////////////
+    /// \brief Get task handle
+    ///
+    /// \return The task handle
+    ///
+    ///////////////////////////////////////////////////////////
+    TaskHandle getHandle() const;
+
+protected:
+    priv::TaskStateWithResult<Ret>* m_state; //!< The associated task state
 };
 
 ///////////////////////////////////////////////////////////
 /// \brief A class used to check status and get results of a scheduler task
 ///
 ///////////////////////////////////////////////////////////
-template <typename Ret>
-class Task : public TaskBase<Ret> {
-   public:
+template <typename Ret> class Task : public TaskBase<Ret> {
+public:
     ///////////////////////////////////////////////////////////
     /// \brief Get the return value of a scheduler task
     ///
@@ -141,8 +154,7 @@ class Task : public TaskBase<Ret> {
 };
 
 // Void not a valid ref type
-template <>
-class Task<void> : public TaskBase<void> {};
+template <> class Task<void> : public TaskBase<void> {};
 
 ///////////////////////////////////////////////////////////
 /// \brief A class that distributes tasks to several worker threads
@@ -151,18 +163,18 @@ class Task<void> : public TaskBase<void> {};
 class Scheduler {
     friend Barrier;
 
-   public:
+public:
     ///////////////////////////////////////////////////////////
     /// \brief Priority levels for the tasks
     ///
     ///////////////////////////////////////////////////////////
     enum Priority {
-        High,    //!< High priority tasks will be executed first
-        Medium,  //!< Medium priority tasks will be executed before low priority
-        Low      //!< Low priority tasks will be executed last
+        High,   //!< High priority tasks will be executed first
+        Medium, //!< Medium priority tasks will be executed before low priority
+        Low     //!< Low priority tasks will be executed last
     };
 
-   public:
+public:
     ///////////////////////////////////////////////////////////
     /// \brief Default constructor
     ///
@@ -230,13 +242,24 @@ class Scheduler {
     /// finished whenever
     ///
     /// \param func The function to execute
+    /// \param dependencies A list of task handles that must be finished before this task can start
     /// \param priority The #Priority level to execute the task with
     ///
     /// \return A Task obejct that can be used to retrieve the function return value
     ///
     ///////////////////////////////////////////////////////////
     template <typename F, typename Ret = typename std::invoke_result<F>::type>
-    Task<Ret> addTask(F&& func, Priority priority = Priority::Medium);
+    Task<Ret> addTask(
+        F&& func,
+        const TaskDependencies& dependencies = {},
+        Priority priority = Priority::Medium
+    );
+
+    ///////////////////////////////////////////////////////////
+    /// \see addTask
+    ///////////////////////////////////////////////////////////
+    template <typename F, typename Ret = typename std::invoke_result<F>::type>
+    Task<Ret> addTask(F&& func, Priority priority);
 
     ///////////////////////////////////////////////////////////
     /// \brief Wait for all tasks in the queue to finish
@@ -267,7 +290,8 @@ class Scheduler {
     ///
     /// \see Barrier
     ///
-    /// \param numTasks The number of tasks expected to be added to the barrier (0 indicates unknown)
+    /// \param numTasks The number of tasks expected to be added to the barrier (0 indicates
+    /// unknown)
     ///
     /// \return A barrier object
     ///
@@ -294,31 +318,39 @@ class Scheduler {
     ///////////////////////////////////////////////////////////
     uint32_t getNumWorkers();
 
-   private:
+private:
     ///////////////////////////////////////////////////////////
     /// \brief The loop that worker threads use
     ///
     ///////////////////////////////////////////////////////////
     void workerLoop(uint32_t id);
 
-   private:
-    std::queue<priv::TaskStateBase*> m_queue[3];  //!< The task queue
-    std::vector<std::thread> m_threads;           //!< The list of worker threads
-    std::atomic<uint32_t> m_numBusy;              //!< The number of busy threads
-    std::atomic<uint32_t> m_numStopped;           //!< The number of threads that have left their loop
-    std::atomic<bool> m_shouldStop;               //!< True if stop() has been called
+    ///////////////////////////////////////////////////////////
+    /// \brief Get next ready task from a queue
+    ///
+    ///////////////////////////////////////////////////////////
+    priv::TaskStateBase* getNextTask(std::deque<priv::TaskStateBase*>& queue);
 
-    std::mutex m_mutex;             //!< Mutex to protect queue and for condition variables
-    std::condition_variable m_scv;  //!< The condition variable used to notify new tasks (start)
-    std::condition_variable m_fcv;  //!< The condition variable used to notify finishing tasks (finish)
+private:
+    std::deque<priv::TaskStateBase*> m_queue[3]; //!< The task queue
+    std::vector<std::thread> m_threads;          //!< The list of worker threads
+    std::atomic<uint32_t> m_numBusy;             //!< The number of busy threads
+    std::atomic<uint32_t> m_numStopped; //!< The number of threads that have left their loop
+    std::atomic<bool> m_shouldStop;     //!< True if stop() has been called
+
+    std::mutex m_mutex;            //!< Mutex to protect queue and for condition variables
+    std::condition_variable m_scv; //!< The condition variable used to notify new tasks (start)
+    std::condition_variable
+        m_fcv; //!< The condition variable used to notify finishing tasks (finish)
 };
 
 ///////////////////////////////////////////////////////////
-/// \brief A class that groups several tasks together and makes it possible to wait for the tasks to finish
+/// \brief A class that groups several tasks together and makes it possible to wait for the tasks to
+/// finish
 ///
 ///////////////////////////////////////////////////////////
 class Barrier {
-   public:
+public:
     ///////////////////////////////////////////////////////////
     /// \brief Constructor
     ///
@@ -347,11 +379,20 @@ class Barrier {
     ///////////////////////////////////////////////////////////
     /// \brief Add a task to the barrier
     ///
-    /// \return The barrier object to chain commands together
+    /// \see Scheduler::addTask
     ///
     ///////////////////////////////////////////////////////////
-    template <typename F>
-    Barrier& add(F&& func, Scheduler::Priority priority = Scheduler::Priority::Medium);
+    template <typename F, typename Ret = typename std::invoke_result<F>::type>
+    Task<Ret>
+    add(F&& func,
+        const TaskDependencies& dependencies = {},
+        Scheduler::Priority priority = Scheduler::Priority::Medium);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Add an already created task to the barrier
+    ///
+    ///////////////////////////////////////////////////////////
+    void add(TaskHandle handle);
 
     ///////////////////////////////////////////////////////////
     /// \brief Wait for all tasks in this barrier to finish
@@ -359,12 +400,12 @@ class Barrier {
     ///////////////////////////////////////////////////////////
     void wait();
 
-   private:
-    Scheduler* m_scheduler;                     //!< The scheduler this barrier belongs to
-    std::vector<priv::TaskStateBase*> m_tasks;  //!< Tasks in this barrier
+private:
+    Scheduler* m_scheduler;                    //!< The scheduler this barrier belongs to
+    std::vector<priv::TaskStateBase*> m_tasks; //!< Tasks in this barrier
 };
 
-}  // namespace ply
+} // namespace ply
 
 #include <ply/core/Scheduler.inl>
 

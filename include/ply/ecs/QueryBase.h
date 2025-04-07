@@ -75,6 +75,7 @@ struct QueryIterator : public QueryAccessor {
     /// \param world The world pointer used to create new accessors
     /// \param group The group being iterated
     /// \param entityIdx The index of the entity within the group
+    /// \param dt The time since last frame
     ///
     ///////////////////////////////////////////////////////////
     QueryIterator(
@@ -82,17 +83,19 @@ struct QueryIterator : public QueryAccessor {
         uint32_t index,
         World* world,
         EntityGroup* group,
-        uint32_t entityIdx
+        uint32_t entityIdx,
+        float dt
     );
 
     uint32_t index; //!< Index of current iteration
+    float dt; //!< Time since last frame
 };
 
 ///////////////////////////////////////////////////////////
 /// \brief Query base class
 ///
 ///////////////////////////////////////////////////////////
-class QueryDescriptor {
+class QueryBase {
     friend World;
 
 public:
@@ -123,67 +126,6 @@ protected:
     std::vector<std::type_index> m_exclude; //!< A set of comopnents to exclude
     std::vector<std::mutex*>
         m_mutexes; //!< Mutexes to lock when starting the query (locked before any callbacks)
-};
-
-///////////////////////////////////////////////////////////
-/// \brief A query builder
-///
-///////////////////////////////////////////////////////////
-class QueryFactory : public QueryDescriptor {
-    friend World;
-    friend Query;
-
-public:
-    QueryFactory() = default;
-    QueryFactory(World* world);
-
-    ///////////////////////////////////////////////////////////
-    /// \brief Add a mutex to lock before iterating comopnents
-    ///
-    /// The mutex will be locked before any callback functions are called.
-    ///
-    /// \param mutex The mutex to lock
-    ///
-    ///////////////////////////////////////////////////////////
-    QueryFactory& lock(std::mutex& mutex);
-
-    ///////////////////////////////////////////////////////////
-    /// \brief Set the which component types should be included in the component query
-    ///
-    /// \param include The type set to include
-    ///
-    ///////////////////////////////////////////////////////////
-    QueryFactory& match(const TypeSet& include);
-
-    ///////////////////////////////////////////////////////////
-    /// \brief Add a type to the include type set
-    ///
-    ///////////////////////////////////////////////////////////
-    template <ComponentType... Cs> QueryFactory& match();
-
-    ///////////////////////////////////////////////////////////
-    /// \brief Set the which component types should be excluded from the component query
-    ///
-    /// \param exclude The type set to exclude
-    ///
-    ///////////////////////////////////////////////////////////
-    QueryFactory& exclude(const TypeSet& exclude);
-
-    ///////////////////////////////////////////////////////////
-    /// \brief Add a type to the exclude type set
-    ///
-    ///////////////////////////////////////////////////////////
-    template <ComponentType... Cs> QueryFactory& exclude();
-
-    ///////////////////////////////////////////////////////////
-    /// \brief Compile the query
-    ///
-    ///////////////////////////////////////////////////////////
-    Query compile();
-
-private:
-    World* m_world;                      //!< World access to iterate components
-    std::vector<EntityGroupId> m_groups; //!< List of entity groups that match query
 };
 
 } // namespace ply

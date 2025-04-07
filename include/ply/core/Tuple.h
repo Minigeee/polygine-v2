@@ -144,6 +144,27 @@ class Tuple : public priv::TupleData<Ts>... {
     constexpr uint32_t getNumElements() const;
 };
 
+// Specialization for empty tuple
+template <>
+class Tuple<> {
+   public:
+    ///////////////////////////////////////////////////////////
+    /// \brief Default constructor
+    ///
+    ///////////////////////////////////////////////////////////
+    Tuple() = default;
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Get the number of elements in the tuple
+    ///
+    /// \return The number of elements in the tuple (always 0)
+    ///
+    ///////////////////////////////////////////////////////////
+    constexpr uint32_t getNumElements() const {
+        return 0;
+    }
+};
+
 ///////////////////////////////////////////////////////////
 /// \brief Make a tuple from its elements
 ///
