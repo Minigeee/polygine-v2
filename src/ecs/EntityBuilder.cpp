@@ -1,19 +1,19 @@
-#include <ply/ecs/EntityFactory.h>
+#include <ply/ecs/EntityBuilder.h>
 #include <ply/ecs/World.h>
 
 namespace ply {
 
 ///////////////////////////////////////////////////////////
-HashMap<std::type_index, ObjectPool> EntityFactory::s_pools;
+HashMap<std::type_index, ObjectPool> EntityBuilder::s_pools;
 
 ///////////////////////////////////////////////////////////
-EntityFactory::EntityFactory() : m_world(0), m_numCreate(0) {}
+EntityBuilder::EntityBuilder() : m_world(0), m_numCreate(0) {}
 
 ///////////////////////////////////////////////////////////
-EntityFactory::EntityFactory(World* world) : m_world(world), m_numCreate(0) {}
+EntityBuilder::EntityBuilder(World* world) : m_world(world), m_numCreate(0) {}
 
 ///////////////////////////////////////////////////////////
-EntityFactory::EntityFactory(const EntityFactory& other)
+EntityBuilder::EntityBuilder(const EntityBuilder& other)
     : m_world(other.m_world),
       m_numCreate(other.m_numCreate),
       m_components(other.m_components) {
@@ -34,7 +34,7 @@ EntityFactory::EntityFactory(const EntityFactory& other)
 }
 
 ///////////////////////////////////////////////////////////
-EntityFactory::EntityFactory(EntityFactory&& other) noexcept
+EntityBuilder::EntityBuilder(EntityBuilder&& other) noexcept
     : m_world(other.m_world),
       m_numCreate(other.m_numCreate),
       m_components(std::move(other.m_components)) {
@@ -43,7 +43,7 @@ EntityFactory::EntityFactory(EntityFactory&& other) noexcept
 }
 
 ///////////////////////////////////////////////////////////
-EntityFactory::~EntityFactory() {
+EntityBuilder::~EntityBuilder() {
     // Free components if still allocated
     if (m_components.size() > 0) {
         for (auto it = m_components.begin(); it != m_components.end(); ++it)
@@ -54,7 +54,7 @@ EntityFactory::~EntityFactory() {
 }
 
 ///////////////////////////////////////////////////////////
-EntityFactory& EntityFactory::operator=(const EntityFactory& other) {
+EntityBuilder& EntityBuilder::operator=(const EntityBuilder& other) {
     if (this != &other) {
         m_world = other.m_world;
         m_numCreate = other.m_numCreate;
@@ -80,7 +80,7 @@ EntityFactory& EntityFactory::operator=(const EntityFactory& other) {
 }
 
 ///////////////////////////////////////////////////////////
-EntityFactory& EntityFactory::operator=(EntityFactory&& other) noexcept {
+EntityBuilder& EntityBuilder::operator=(EntityBuilder&& other) noexcept {
     if (this != &other) {
         m_world = other.m_world;
         m_numCreate = other.m_numCreate;
@@ -94,7 +94,7 @@ EntityFactory& EntityFactory::operator=(EntityFactory&& other) noexcept {
 }
 
 ///////////////////////////////////////////////////////////
-std::vector<EntityId> EntityFactory::create(uint32_t num) {
+std::vector<EntityId> EntityBuilder::create(uint32_t num) {
     if (!m_components.size())
         return {};
 
@@ -110,7 +110,7 @@ std::vector<EntityId> EntityFactory::create(uint32_t num) {
 
 ///////////////////////////////////////////////////////////
 std::vector<EntityId>
-EntityFactory::createImpl(uint32_t num, HashMap<std::type_index, void*>& ptrs, bool allowDefer) {
+EntityBuilder::createImpl(uint32_t num, HashMap<std::type_index, void*>& ptrs, bool allowDefer) {
     // Get group hash
     std::vector<std::type_index> typeIds;
     for (auto it = m_components.begin(); it != m_components.end(); ++it)
@@ -135,7 +135,7 @@ EntityFactory::createImpl(uint32_t num, HashMap<std::type_index, void*>& ptrs, b
     if (defer) {
         if (allowDefer) {
             // Add to queue
-            m_world->m_addQueue.push_back(new EntityFactory(std::move(*this)));
+            m_world->m_addQueue.push_back(new EntityBuilder(std::move(*this)));
             return {};
         } else {
             // If not allowed to defer, then just wait
@@ -178,7 +178,7 @@ EntityFactory::createImpl(uint32_t num, HashMap<std::type_index, void*>& ptrs, b
 }
 
 ///////////////////////////////////////////////////////////
-void EntityFactory::sendEvent(
+void EntityBuilder::sendEvent(
     const std::vector<EntityId>& ids,
     const HashMap<std::type_index, void*>& ptrs
 ) {

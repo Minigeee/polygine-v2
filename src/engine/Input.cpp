@@ -24,8 +24,10 @@ void Input::poll() {
         case SDL_EVENT_MOUSE_MOTION: {
             Window* window = Window::s_windows[e.motion.windowID];
             window->sendEvent<Event::MouseMove>(
-                {.x = e.motion.x, .y = e.motion.y, .dx = e.motion.xrel, .dy = e.motion.yrel}
-            );
+                {.x = e.motion.x,
+                 .y = e.motion.y,
+                 .dx = e.motion.xrel,
+                 .dy = e.motion.yrel});
             break;
         }
         case SDL_EVENT_MOUSE_BUTTON_DOWN: {
@@ -34,8 +36,7 @@ void Input::poll() {
                 {.button = (Mouse::Button)e.button.button,
                  .action = InputAction::Press,
                  .x = e.button.x,
-                 .y = e.button.y}
-            );
+                 .y = e.button.y});
             break;
         }
         case SDL_EVENT_MOUSE_BUTTON_UP: {
@@ -44,13 +45,13 @@ void Input::poll() {
                 {.button = (Mouse::Button)e.button.button,
                  .action = InputAction::Release,
                  .x = e.button.x,
-                 .y = e.button.y}
-            );
+                 .y = e.button.y});
             break;
         }
         case SDL_EVENT_MOUSE_WHEEL: {
             Window* window = Window::s_windows[e.wheel.windowID];
-            window->sendEvent<Event::MouseScroll>({.dx = e.wheel.x, .dy = e.wheel.y});
+            window->sendEvent<Event::MouseScroll>(
+                {.dx = e.wheel.x, .dy = e.wheel.y});
             break;
         }
 
@@ -60,8 +61,8 @@ void Input::poll() {
             window->sendEvent<Event::Key>(
                 {.key = (Keyboard::Key)e.key.key,
                  .scan = (Keyboard::Scancode)e.key.scancode,
-                 .action = e.key.repeat ? InputAction::Repeat : InputAction::Press}
-            );
+                 .action =
+                     e.key.repeat ? InputAction::Repeat : InputAction::Press});
             break;
         }
         case SDL_EVENT_KEY_UP: {
@@ -69,8 +70,7 @@ void Input::poll() {
             window->sendEvent<Event::Key>(
                 {.key = (Keyboard::Key)e.key.key,
                  .scan = (Keyboard::Scancode)e.key.scancode,
-                 .action = InputAction::Release}
-            );
+                 .action = InputAction::Release});
             break;
         }
 
@@ -84,14 +84,12 @@ void Input::poll() {
             }
 
             Gamepad::getHandler().sendEvent<Event::GamepadConnection>(
-                {.id = e.gdevice.which, .connected = true}
-            );
+                {.id = e.gdevice.which, .connected = true});
             break;
         }
         case SDL_EVENT_GAMEPAD_REMOVED: {
             Gamepad::getHandler().sendEvent<Event::GamepadConnection>(
-                {.id = e.gdevice.which, .connected = false}
-            );
+                {.id = e.gdevice.which, .connected = false});
 
             // Close gamepad
             SDL_CloseGamepad(SDL_GetGamepadFromID(e.gdevice.which));
@@ -101,22 +99,21 @@ void Input::poll() {
             Gamepad::getHandler().sendEvent<Event::GamepadButton>(
                 {.id = e.gbutton.which,
                  .button = (Gamepad::Button)e.gbutton.button,
-                 .action = InputAction::Press}
-            );
+                 .action = InputAction::Press});
             break;
         }
         case SDL_EVENT_GAMEPAD_BUTTON_UP: {
             Gamepad::getHandler().sendEvent<Event::GamepadButton>(
                 {.id = e.gbutton.which,
                  .button = (Gamepad::Button)e.gbutton.button,
-                 .action = InputAction::Release}
-            );
+                 .action = InputAction::Release});
             break;
         }
         case SDL_EVENT_GAMEPAD_AXIS_MOTION: {
             Gamepad::getHandler().sendEvent<Event::GamepadAxis>(
-                {.id = e.gaxis.which, .axis = (Gamepad::Axis)e.gaxis.axis, .value = e.gaxis.value}
-            );
+                {.id = e.gaxis.which,
+                 .axis = (Gamepad::Axis)e.gaxis.axis,
+                 .value = e.gaxis.value});
             break;
         }
 

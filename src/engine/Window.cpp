@@ -13,17 +13,26 @@ uint32_t Window::s_numWindows = 0;
 HashMap<WindowId, Window*> Window::s_windows;
 
 ///////////////////////////////////////////////////////////
-Window::Window() : m_window(nullptr), m_shouldClose(false) {}
+Window::Window() :
+    m_window(nullptr),
+    m_shouldClose(false) {}
 
 ///////////////////////////////////////////////////////////
-Window::Window(uint32_t w, uint32_t h, const std::string& title, bool fullscreen)
-    : m_window(0),
-      m_shouldClose(false) {
+Window::Window(
+    uint32_t w,
+    uint32_t h,
+    const std::string& title,
+    bool fullscreen
+) :
+    m_window(0),
+    m_shouldClose(false) {
     create(w, h, title, fullscreen);
 }
 
 ///////////////////////////////////////////////////////////
-Window::Window(Window&& other) : m_window(other.m_window), m_shouldClose(other.m_shouldClose) {
+Window::Window(Window&& other) :
+    m_window(other.m_window),
+    m_shouldClose(other.m_shouldClose) {
     other.m_window = 0;
 
     // Update tracking
@@ -65,7 +74,12 @@ Window::~Window() {
 }
 
 ///////////////////////////////////////////////////////////
-bool Window::create(uint32_t w, uint32_t h, const std::string& title, bool fullscreen) {
+bool Window::create(
+    uint32_t w,
+    uint32_t h,
+    const std::string& title,
+    bool fullscreen
+) {
     // Don't create if window is already open
     if (m_window)
         return false;
@@ -187,4 +201,4 @@ Vector2f Window::getMousePosition() const {
     return pos;
 }
 
-}
+} // namespace ply

@@ -1,7 +1,7 @@
 #pragma once
 
 #ifndef PLY_ECS_WORLD_H
-#define PLY_ECS_WORLD_H
+    #define PLY_ECS_WORLD_H
 #endif
 
 #include <ply/core/Clock.h>
@@ -9,7 +9,7 @@
 #include <ply/core/Mutex.h>
 #include <ply/core/Scheduler.h>
 #include <ply/ecs/Entity.h>
-#include <ply/ecs/EntityFactory.h>
+#include <ply/ecs/EntityBuilder.h>
 #include <ply/ecs/EntityGroup.h>
 #include <ply/ecs/Observer.h>
 #include <ply/ecs/Query.h>
@@ -28,8 +28,8 @@ class Observer;
 /// \brief ECS World
 ///
 /// The World class is the main container for the Entity-Component-System (ECS)
-/// architecture. It manages entities, components, and provides the infrastructure
-/// for systems to operate on them.
+/// architecture. It manages entities, components, and provides the
+/// infrastructure for systems to operate on them.
 ///
 /// World is a more focused and concise implementation of an ECS container,
 /// designed for performance and ease of use. It organizes entities into groups
@@ -38,7 +38,8 @@ class Observer;
 /// Key responsibilities:
 /// - Creating and removing entities
 /// - Managing entity groups (collections of entities with the same components)
-/// - Providing query mechanisms to find and process entities with specific components
+/// - Providing query mechanisms to find and process entities with specific
+/// components
 /// - Handling entity events (creation, removal)
 ///
 /// Usage example:
@@ -68,14 +69,14 @@ class Observer;
 ///////////////////////////////////////////////////////////
 class World {
     friend class Entity;
-    friend class EntityFactory;
+    friend class EntityBuilder;
     friend class QueryAccessor;
     friend class QueryFactory;
     friend class Query;
     friend class Observer;
     friend class System;
 
-public:
+  public:
     ///////////////////////////////////////////////////////////
     /// \brief Type of entity events
     ///
@@ -83,12 +84,14 @@ public:
     enum EntityEventType {
         OnCreate = 0, //!< Called when entities are created
         OnRemove,     //!< Called when entities are removed
-        OnEnter,      //!< Called when entities enter a query (when they start matching a query)
-        OnExit,       //!< Called when entities exit a query (when they stop matching a query)
+        OnEnter,      //!< Called when entities enter a query (when they start
+                      //!< matching a query)
+        OnExit, //!< Called when entities exit a query (when they stop matching
+                //!< a query)
         NUM_EVENTS
     };
 
-public:
+  public:
     ///////////////////////////////////////////////////////////
     /// \brief Default constructor
     ///
@@ -106,16 +109,17 @@ public:
     ~World();
 
     ///////////////////////////////////////////////////////////
-    /// \brief Create an entity factory for building new entities
+    /// \brief Create an entity builder for building new entities
     ///
-    /// This function returns an entity factory that can be used to
-    /// create new entities with components. The factory allows for
+    /// This function returns an entity builder that can be used to
+    /// create new entities with components. The builder allows for
     /// a fluent interface to add components and then create one or
     /// more entities with the same component structure.
     ///
-    /// The entity will be created immediately if the entity's group is
-    /// not locked by another operation. Otherwise, the entity will be
-    /// created during the next call to tick().
+    /// Upon creation through create(), the entity will be created immediately
+    /// if the entity's group is not locked by another operation. Otherwise, the
+    /// entity will be created during the next call to tick(), in which case, an
+    /// empty list of ids will be returned.
     ///
     /// Usage example:
     /// \code
@@ -125,18 +129,18 @@ public:
     ///     .create(10); // Create 10 entities
     /// \endcode
     ///
-    /// \return An entity factory for building and creating entities
+    /// \return An entity builder for building and creating entities
     ///
     ///////////////////////////////////////////////////////////
-    EntityFactory entity();
+    EntityBuilder entity();
 
     ///////////////////////////////////////////////////////////
     /// \brief Remove an entity
     ///
     /// Remove the entity from the world. The entity will be removed immediately
     /// if the entity's group is not locked by another operation. Otherwise, the
-    /// entity will be marked for removal and will be removed during the next call
-    /// to tick().
+    /// entity will be marked for removal and will be removed during the next
+    /// call to tick().
     ///
     /// \param id The id of the entity to remove
     ///
@@ -165,7 +169,7 @@ public:
     ///
     /// Adds a component of type C to the specified entity. If the entity
     /// already has a component of this type, it will be replaced.
-    /// 
+    ///
     /// This operation may be deferred if the entity's group is currently
     /// locked by another operation. In that case, the component will be
     /// added during the next call to tick().
@@ -176,7 +180,8 @@ public:
     /// \tparam C The component type (must satisfy ComponentType concept)
     ///
     ///////////////////////////////////////////////////////////
-    template <ComponentType C> void addComponent(EntityId id, const C& component);
+    template <ComponentType C>
+    void addComponent(EntityId id, const C& component);
 
     ///////////////////////////////////////////////////////////
     /// \brief Remove a component from an existing entity
@@ -191,10 +196,12 @@ public:
     ///
     /// \param id The id of the entity to remove the component from
     ///
-    /// \tparam C The component type to remove (must satisfy ComponentType concept)
+    /// \tparam C The component type to remove (must satisfy ComponentType
+    /// concept)
     ///
     ///////////////////////////////////////////////////////////
-    template <ComponentType C> void removeComponent(EntityId id);
+    template <ComponentType C>
+    void removeComponent(EntityId id);
 
     ///////////////////////////////////////////////////////////
     /// \brief Get an observer for entity events
@@ -253,8 +260,8 @@ public:
     ///     });
     /// \endcode
     ///
-    /// \note You can add a system without any query specifiers to add a system that runs
-    /// every tick without having to process any entities
+    /// \note You can add a system without any query specifiers to add a system
+    /// that runs every tick without having to process any entities
     ///
     /// \return A system for processing entities
     ///
@@ -324,7 +331,7 @@ public:
     ///////////////////////////////////////////////////////////
     void setScheduler(Scheduler* scheduler);
 
-private:
+  private:
     ///////////////////////////////////////////////////////////
     /// \brief Data for entities
     ///
@@ -392,8 +399,8 @@ private:
     void removeQueuedEntities();
 
     ///////////////////////////////////////////////////////////
-    /// \brief Add component to entity implementation, does not handle thread safety for original
-    /// entity group
+    /// \brief Add component to entity implementation, does not handle thread
+    /// safety for original entity group
     ///////////////////////////////////////////////////////////
     void addComponent(
         EntityGroup* group,
@@ -405,8 +412,8 @@ private:
     );
 
     ///////////////////////////////////////////////////////////
-    /// \brief Remove component from entity implementation, does not handle thread safety for
-    /// original entity group
+    /// \brief Remove component from entity implementation, does not handle
+    /// thread safety for original entity group
     ///////////////////////////////////////////////////////////
     void removeComponent(EntityGroup* group, EntityId id, std::type_index type);
 
@@ -486,7 +493,8 @@ private:
     void registerSystem(System* system);
 
     ///////////////////////////////////////////////////////////
-    /// \brief Register query so that it can properly find components and entities
+    /// \brief Register query so that it can properly find components and
+    /// entities
     ///
     /// Internal method that registers a query with the world and
     /// identifies which entity groups match the query. This
@@ -500,33 +508,40 @@ private:
     ///////////////////////////////////////////////////////////
     QueryFactory* registerQuery(QueryFactory* query);
 
-private:
-    SharedMutex m_groupsMutex;          //!< Mutex protecting access to entity groups
-    HandleArray<EntityData> m_entities; //!< Array of entity data mapping IDs to groups and indices
+  private:
+    SharedMutex m_groupsMutex; //!< Mutex protecting access to entity groups
+    HandleArray<EntityData>
+        m_entities; //!< Array of entity data mapping IDs to groups and indices
     HashMap<EntityGroupId, std::unique_ptr<EntityGroup>>
         m_groups; //!< Map of group IDs to entity groups
 
     // Deferred operations
-    std::vector<EntityFactory*> m_addQueue;     //!< List of entities to add
-    std::vector<ComponentChange> m_changeQueue; //!< List of component changes to apply
-    uint32_t m_numRemoveQueued; //!< Tracks number of entities queued for removal for optimization
+    std::vector<EntityBuilder*> m_addQueue; //!< List of entities to add
+    std::vector<ComponentChange>
+        m_changeQueue;          //!< List of component changes to apply
+    uint32_t m_numRemoveQueued; //!< Tracks number of entities queued for
+                                //!< removal for optimization
 
     // Observers
-    TypePool<Observer>
-        m_observerPool; //!< Pool allocator for observers to reduce memory fragmentation
+    TypePool<Observer> m_observerPool; //!< Pool allocator for observers to
+                                       //!< reduce memory fragmentation
     std::vector<Observer*>
-        m_observers[EntityEventType::NUM_EVENTS]; //!< Lists of observers for each event type
+        m_observers[EntityEventType::NUM_EVENTS]; //!< Lists of observers for
+                                                  //!< each event type
 
     // Systems
     Scheduler* m_scheduler;         //!< Scheduler for executing systems
-    TypePool<System> m_systemPool;  //!< Pool allocator for systems to reduce memory fragmentation
+    TypePool<System> m_systemPool;  //!< Pool allocator for systems to reduce
+                                    //!< memory fragmentation
     std::vector<System*> m_systems; //!< Systems
-    std::vector<OptimizedSystemLayer> m_optimizedSystems; //!< Optimized system layers
-    bool m_systemsDirty;                                  //!< Have systems been added or removed
+    std::vector<OptimizedSystemLayer>
+        m_optimizedSystems; //!< Optimized system layers
+    bool m_systemsDirty;    //!< Have systems been added or removed
 
     // Queries
-    TypePool<QueryFactory> m_queryPool;         //!< Pool allocator for query factories
-    HashMap<uint32_t, QueryFactory*> m_queries; //!< Map of query hash to query factory for reuse
+    TypePool<QueryFactory> m_queryPool; //!< Pool allocator for query factories
+    HashMap<uint32_t, QueryFactory*>
+        m_queries; //!< Map of query hash to query factory for reuse
 
     // Time
     Clock m_clock;      //!< Clock used for time management

@@ -2,14 +2,14 @@
 #include <ply/core/PoolAllocator.h>
 #include <ply/core/Tuple.h>
 #include <ply/core/Types.h>
-#include <ply/ecs/EntityFactory.h>
+#include <ply/ecs/EntityBuilder.h>
 
 #include <loguru.hpp>
 
 namespace ply {
 
 ///////////////////////////////////////////////////////////
-template <ComponentType C> EntityFactory& EntityFactory::add(const C& component) {
+template <ComponentType C> EntityBuilder& EntityBuilder::add(const C& component) {
     CHECK_F(VALID_COMPONENT_TYPE(C), "component type %s is not valid", typeid(C).name());
 
     std::type_index tid = typeid(C);
@@ -35,7 +35,7 @@ template <ComponentType C> EntityFactory& EntityFactory::add(const C& component)
 
 ///////////////////////////////////////////////////////////
 template <typename Func>
-std::vector<EntityId> EntityFactory::create(Func&& onCreate, uint32_t num) {
+std::vector<EntityId> EntityBuilder::create(Func&& onCreate, uint32_t num) {
     if (!m_components.size())
         return {};
 
@@ -60,7 +60,7 @@ std::vector<EntityId> EntityFactory::create(Func&& onCreate, uint32_t num) {
 ///////////////////////////////////////////////////////////
 template <typename... Cs, typename Func>
 std::vector<EntityId>
-EntityFactory::templateCreateImpl(Func&& onCreate, uint32_t num, type_wrapper<std::tuple<Cs...>>) {
+EntityBuilder::templateCreateImpl(Func&& onCreate, uint32_t num, type_wrapper<std::tuple<Cs...>>) {
     // Get first parameter type
     using FirstParamType = typename first_param<std::decay_t<decltype(onCreate)>>::type;
 

@@ -256,8 +256,8 @@ void World::removeSystem(System* system) {
 }
 
 ///////////////////////////////////////////////////////////
-EntityFactory World::entity() {
-    return EntityFactory(this);
+EntityBuilder World::entity() {
+    return EntityBuilder(this);
 }
 
 ///////////////////////////////////////////////////////////

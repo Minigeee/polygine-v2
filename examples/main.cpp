@@ -49,15 +49,25 @@ void ecsTest() {
         });
 
     ply::System* a = world.system().match<Position>().each(
-        [](ply::QueryIterator it, Position& pos) { printf("a\n"); }
+        [](ply::QueryIterator it, Position& pos) {
+            printf("a\n");
+        }
     );
     ply::System* b = world.system().before(a).match<Position>().each(
-        [](ply::QueryIterator it, Position& pos) { printf("b\n"); }
+        [](ply::QueryIterator it, Position& pos) {
+            printf("b\n");
+        }
     );
-    world.system().after(b).each([](ply::QueryIterator it) { printf("c\n"); });
+    world.system().after(b).each([](ply::QueryIterator it) {
+        printf("c\n");
+    });
 
     auto entities =
-        world.entity().add(Position{0.0f, 1.0f, 0.0f}).create([](Position& pos) { pos.z = 2.5f; });
+        world.entity()
+            .add(Position{0.0f, 1.0f, 0.0f})
+            .create([](Position& pos) {
+                pos.z = 2.5f;
+            });
 
     auto query = world.query().match<Position>().compile();
 
@@ -80,7 +90,9 @@ void ecsTest() {
     world.remove(entities[0]);
     entity.release();
 
-    events.addListener<Position>([](const Position& pos) { std::cout << "received pos event\n"; });
+    events.addListener<Position>([](const Position& pos) {
+        std::cout << "received pos event\n";
+    });
 
     world.tick();
 
@@ -96,7 +108,12 @@ void schedulerTest() {
         ply::sleep(1.0f);
         std::cout << "a\n";
     });
-    barrier.add([]() { std::cout << "b\n"; }, {taskA.getHandle()});
+    barrier.add(
+        []() {
+            std::cout << "b\n";
+        },
+        {taskA.getHandle()}
+    );
     barrier.wait();
 }
 
@@ -112,18 +129,22 @@ int main(int argc, char* argv[]) {
     // Enable gamepad support
     ply::Gamepad::enable();
 
-    window.addListener<ply::Event::MouseButton>([](const ply::Event::MouseButton& event) {
-        std::cout << "Mouse button " << (int)event.button << " " << (int)event.action << "\n";
-    });
+    window.addListener<ply::Event::MouseButton>(
+        [](const ply::Event::MouseButton& event) {
+            std::cout << "Mouse button " << (int)event.button << " "
+                      << (int)event.action << "\n";
+        }
+    );
 
     window.addListener<ply::Event::Key>([](const ply::Event::Key& event) {
-        std::cout << "Key " << (int)event.key << " " << (int)event.action << "\n";
+        std::cout << "Key " << (int)event.key << " " << (int)event.action
+                  << "\n";
     });
 
     ply::Gamepad::getHandler().addListener<ply::Event::GamepadConnection>(
         [](const ply::Event::GamepadConnection& event) {
-            std::cout << "Gamepad connection " << (int)event.id << " " << (int)event.connected
-                      << "\n";
+            std::cout << "Gamepad connection " << (int)event.id << " "
+                      << (int)event.connected << "\n";
         }
     );
 
@@ -133,13 +154,25 @@ int main(int argc, char* argv[]) {
         ply::Input::poll();
 
         if (gamepads.size() > 0) {
-            if (ply::Gamepad::isButtonPressed(gamepads[0], ply::Gamepad::Button::South))
+            if (ply::Gamepad::isButtonPressed(
+                    gamepads[0],
+                    ply::Gamepad::Button::South
+                ))
                 std::cout << "Gamepad button pressed B\n";
-            if (ply::Gamepad::isButtonPressed(gamepads[0], ply::Gamepad::Button::East))
+            if (ply::Gamepad::isButtonPressed(
+                    gamepads[0],
+                    ply::Gamepad::Button::East
+                ))
                 std::cout << "Gamepad button pressed A\n";
-            if (ply::Gamepad::isButtonPressed(gamepads[0], ply::Gamepad::Button::North))
+            if (ply::Gamepad::isButtonPressed(
+                    gamepads[0],
+                    ply::Gamepad::Button::North
+                ))
                 std::cout << "Gamepad button pressed X\n";
-            if (ply::Gamepad::isButtonPressed(gamepads[0], ply::Gamepad::Button::West))
+            if (ply::Gamepad::isButtonPressed(
+                    gamepads[0],
+                    ply::Gamepad::Button::West
+                ))
                 std::cout << "Gamepad button pressed Y\n";
         }
 

@@ -33,7 +33,8 @@ bool Gamepad::isConnected(GamepadId id) {
 
 ///////////////////////////////////////////////////////////
 bool Gamepad::hasButton(GamepadId id, Gamepad::Button button) {
-    return SDL_GamepadHasButton(SDL_GetGamepadFromID(id), (SDL_GamepadButton)button);
+    return SDL_GamepadHasButton(
+        SDL_GetGamepadFromID(id), (SDL_GamepadButton)button);
 }
 
 ///////////////////////////////////////////////////////////
@@ -43,7 +44,8 @@ bool Gamepad::hasAxis(GamepadId id, Gamepad::Axis axis) {
 
 ///////////////////////////////////////////////////////////
 bool Gamepad::isButtonPressed(GamepadId id, Gamepad::Button button) {
-    return SDL_GetGamepadButton(SDL_GetGamepadFromID(id), (SDL_GamepadButton)button);
+    return SDL_GetGamepadButton(
+        SDL_GetGamepadFromID(id), (SDL_GamepadButton)button);
 }
 
 ///////////////////////////////////////////////////////////
@@ -51,4 +53,4 @@ int16_t Gamepad::getAxisPosition(GamepadId id, Gamepad::Axis axis) {
     return SDL_GetGamepadAxis(SDL_GetGamepadFromID(id), (SDL_GamepadAxis)axis);
 }
 
-}
+} // namespace ply
