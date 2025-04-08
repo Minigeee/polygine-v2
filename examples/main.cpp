@@ -6,6 +6,8 @@
 #include <ply/core/Types.h>
 #include <ply/ecs/World.h>
 #include <ply/engine/Events.h>
+#include <ply/engine/Gamepad.h>
+#include <ply/engine/Input.h>
 #include <ply/engine/Window.h>
 
 #include <iostream>
@@ -107,8 +109,41 @@ int main(int argc, char* argv[]) {
     ply::Window window;
     window.create(800, 600, "Window");
 
+    // Enable gamepad support
+    ply::Gamepad::enable();
+
+    window.addListener<ply::Event::MouseButton>([](const ply::Event::MouseButton& event) {
+        std::cout << "Mouse button " << (int)event.button << " " << (int)event.action << "\n";
+    });
+
+    window.addListener<ply::Event::Key>([](const ply::Event::Key& event) {
+        std::cout << "Key " << (int)event.key << " " << (int)event.action << "\n";
+    });
+
+    ply::Gamepad::getHandler().addListener<ply::Event::GamepadConnection>(
+        [](const ply::Event::GamepadConnection& event) {
+            std::cout << "Gamepad connection " << (int)event.id << " " << (int)event.connected
+                      << "\n";
+        }
+    );
+
+    auto gamepads = ply::Gamepad::getDevices();
+
     while (!window.shouldClose()) {
-        ply::Window::poll();
+        ply::Input::poll();
+
+        if (gamepads.size() > 0) {
+            if (ply::Gamepad::isButtonPressed(gamepads[0], ply::Gamepad::Button::South))
+                std::cout << "Gamepad button pressed B\n";
+            if (ply::Gamepad::isButtonPressed(gamepads[0], ply::Gamepad::Button::East))
+                std::cout << "Gamepad button pressed A\n";
+            if (ply::Gamepad::isButtonPressed(gamepads[0], ply::Gamepad::Button::North))
+                std::cout << "Gamepad button pressed X\n";
+            if (ply::Gamepad::isButtonPressed(gamepads[0], ply::Gamepad::Button::West))
+                std::cout << "Gamepad button pressed Y\n";
+        }
+
+        ply::sleep(1.0f / 60.0f);
     }
 
     return 0;

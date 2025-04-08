@@ -76,7 +76,7 @@ bool Window::create(uint32_t w, uint32_t h, const std::string& title, bool fulls
 
     // Initialize SDL
     if (!s_numWindows) {
-        if (!SDL_Init(SDL_INIT_VIDEO)) {
+        if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
             LOG_F(ERROR, "Failed to initialize SDL");
             return false;
         }
@@ -104,6 +104,7 @@ bool Window::create(uint32_t w, uint32_t h, const std::string& title, bool fulls
 
     // Track window
     auto windowId = SDL_GetWindowID(window);
+    CHECK_F(windowId < 100, "window id too large");
     s_windows[windowId] = this;
 
     return true;
@@ -124,26 +125,6 @@ void Window::close() {
         // Reset pointer
         m_window = nullptr;
         m_shouldClose = false;
-    }
-}
-
-///////////////////////////////////////////////////////////
-void Window::poll() {
-    SDL_Event e;
-    while (SDL_PollEvent(&e)) {
-        switch (e.type) {
-        case SDL_EVENT_WINDOW_CLOSE_REQUESTED: {
-            Window* window = s_windows[e.window.windowID];
-            window->m_shouldClose = true;
-            break;
-        }
-
-        case SDL_EVENT_WINDOW_RESIZED:
-            break;
-
-        default:
-            break;
-        }
     }
 }
 
@@ -185,6 +166,25 @@ Vector2i Window::getSize() const {
     Vector2i size;
     SDL_GetWindowSize(WINDOW_CAST(m_window), &size.x, &size.y);
     return size;
+}
+
+///////////////////////////////////////////////////////////
+bool Window::isKeyPressed(Keyboard::Scancode key) const {
+    const bool* keys = SDL_GetKeyboardState(nullptr);
+    return keys[(SDL_Keycode)key];
+}
+
+///////////////////////////////////////////////////////////
+bool Window::isMousePressed(Mouse::Button button) const {
+    uint32_t state = SDL_GetMouseState(nullptr, nullptr);
+    return (bool)(SDL_BUTTON_MASK((uint32_t)button) & state);
+}
+
+///////////////////////////////////////////////////////////
+Vector2f Window::getMousePosition() const {
+    Vector2f pos;
+    SDL_GetMouseState(&pos.x, &pos.y);
+    return pos;
 }
 
 }

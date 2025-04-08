@@ -2,6 +2,8 @@
 
 #include <ply/core/Platform.h>
 #include <ply/core/Types.h>
+#include <ply/engine/Events.h>
+#include <ply/engine/Input.h>
 #include <ply/math/Types.h>
 
 #include <cstdint>
@@ -19,7 +21,15 @@ typedef HWND WindowHandle;
 
 typedef uint32_t WindowId;
 
-class Window {
+class Window
+    : public EventDispatcher<
+          Event::Key,
+          Event::MouseButton,
+          Event::MouseMove,
+          Event::MouseScroll,
+          Event::TextInput> {
+    friend Input;
+
 public:
     ///////////////////////////////////////////////////////////
     /// \brief Default constructor
@@ -51,15 +61,11 @@ public:
     Window(const Window&) = delete;
     Window& operator=(const Window&) = delete;
     Window(Window&&);
+    ///////////////////////////////////////////////////////////
+    /// \brief Gamepad axis motion event
+    ///
+    ///////////////////////////////////////////////////////////
     Window& operator=(Window&&);
-
-    ///////////////////////////////////////////////////////////
-    /// \brief Poll events for all windows
-    ///
-    /// This will process and send events for all input listeners.
-    ///
-    ///////////////////////////////////////////////////////////
-    static void poll();
 
     ///////////////////////////////////////////////////////////
     /// \brief Create a new window using the given settings
@@ -125,6 +131,32 @@ public:
     ///
     ///////////////////////////////////////////////////////////
     Vector2i getSize() const;
+    
+    ///////////////////////////////////////////////////////////
+    /// \brief Check if a key is pressed
+    ///
+    /// \param key The key to check
+    /// \return True if the specified key is pressed
+    ///
+    ///////////////////////////////////////////////////////////
+    bool isKeyPressed(Keyboard::Scancode key) const;
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Check if a mouse button is pressed
+    ///
+    /// \param button The mouse button to check
+    /// \return True if the specified mouse button is pressed
+    ///
+    ///////////////////////////////////////////////////////////
+    bool isMousePressed(Mouse::Button button) const;
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Get the current mouse position
+    ///
+    /// \return The current mouse position relative to the top-left of the window
+    ///
+    ///////////////////////////////////////////////////////////
+    Vector2f getMousePosition() const;
 
 private:
     void* m_window;     //!< Internal window pointer

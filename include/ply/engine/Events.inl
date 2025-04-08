@@ -6,7 +6,7 @@ namespace priv {
     template <typename E>
     inline Handle EventDispatcherImpl<E>::addListener(std::function<void(const E&)>&& func) {
         // Add the listener and return the handle
-        return m_listeners.add(std::move(func));
+        return m_listeners.push(std::move(func));
     }
 
     ///////////////////////////////////////////////////////////
@@ -17,7 +17,7 @@ namespace priv {
     ///////////////////////////////////////////////////////////
     template <typename E> inline void EventDispatcherImpl<E>::sendEvent(const E& event) {
         // Iterate all listeners and call the function
-        const std::vector<std::function<void(const E&)>>& listeners = m_listeners.getData();
+        const std::vector<std::function<void(const E&)>>& listeners = m_listeners.data();
         for (uint32_t i = 0; i < listeners.size(); ++i)
             listeners[i](event);
     }
