@@ -2,6 +2,7 @@ BasedOnStyle: LLVM
 UseTab: Never
 IndentWidth: 4
 TabWidth: 4
+AccessModifierOffset: -4
 
 # Method chaining settings
 PenaltyIndentedWhitespace: 2
@@ -12,6 +13,7 @@ AllowShortLambdasOnASingleLine: Empty
 BreakTemplateDeclarations: Yes
 IndentPPDirectives: BeforeHash
 PointerAlignment: Left
+NamespaceIndentation: Inner
 
 # Function parameter wrapping settings
 BinPackArguments: false

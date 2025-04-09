@@ -34,6 +34,7 @@ set_target_properties(polygine_dev
     PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
+copy_required_dlls(polygine_dev)
 
 # Copy SDL3 DLL to the output directory
 if(WIN32)

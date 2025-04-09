@@ -89,7 +89,7 @@ inline void TypePool<T>::free(T *ptr) {
 #ifndef NDEBUG
     // In debug mode, keep track of which slots are being used to prevent double freeing
     uint32_t index = (T *)ptr - (T *)(header + 1);
-    CHECK_F(header->m_used[index], "The pointer 0x%08X is being freed from the object pool more than once, this will cause undefined behavior in release builds", ptr);
+    CHECK_F(header->m_used[index], "The pointer 0x%08X is being freed from the object pool more than once, this will cause undefined behavior in release builds", (size_t)ptr);
 
     header->m_used[index] = false;
 #endif

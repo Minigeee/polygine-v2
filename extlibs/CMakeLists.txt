@@ -49,3 +49,14 @@ target_include_directories(polygine PUBLIC
 # sdl
 CPMAddPackage("gh:libsdl-org/SDL#main")
 target_link_libraries(polygine PUBLIC SDL3::SDL3)
+
+# ---
+
+# Diligent
+CPMAddPackage("gh:diligentgraphics/DiligentCore#master")
+target_include_directories(polygine PUBLIC
+    $<BUILD_INTERFACE:${DiligentCore_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:include>)
+target_link_libraries(polygine PUBLIC
+    Diligent-GraphicsEngineOpenGL-shared
+    Diligent-GraphicsEngineVk-shared)

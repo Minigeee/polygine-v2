@@ -11,7 +11,7 @@ class EntityGroup;
 class System : public QueryBase {
     friend World;
 
-public:
+  public:
     using IteratorFn = std::function<void(
         const std::vector<EntityId>&,
         const HashMap<std::type_index, void*>&,
@@ -20,7 +20,7 @@ public:
         float
     )>;
 
-public:
+  public:
     System() = default;
     System(World* world);
     System(const System& other) = delete;
@@ -39,7 +39,8 @@ public:
     System& lock(std::mutex& mutex);
 
     ///////////////////////////////////////////////////////////
-    /// \brief Set the which component types should be included in the component query
+    /// \brief Set the which component types should be included in the component
+    /// query
     ///
     /// \param include The type set to include
     ///
@@ -50,10 +51,12 @@ public:
     /// \brief Add a type to the include type set
     ///
     ///////////////////////////////////////////////////////////
-    template <ComponentType... Cs> System& match();
+    template <ComponentType... Cs>
+    System& match();
 
     ///////////////////////////////////////////////////////////
-    /// \brief Set the which component types should be excluded from the component query
+    /// \brief Set the which component types should be excluded from the
+    /// component query
     ///
     /// \param exclude The type set to exclude
     ///
@@ -64,7 +67,8 @@ public:
     /// \brief Add a type to the exclude type set
     ///
     ///////////////////////////////////////////////////////////
-    template <ComponentType... Cs> System& exclude();
+    template <ComponentType... Cs>
+    System& exclude();
 
     ///////////////////////////////////////////////////////////
     /// \brief Specify that this system should run before another
@@ -83,20 +87,23 @@ public:
     System& after(System* system);
 
     ///////////////////////////////////////////////////////////
-    /// \brief Set the function that will get called on all entities that match the System query
+    /// \brief Set the function that will get called on all entities that match
+    /// the System query
     ///
     ///////////////////////////////////////////////////////////
-    template <typename Func> System* each(Func&& fn);
+    template <typename Func>
+    System* each(Func&& fn);
 
-private:
+  private:
     World* m_world;                      //!< World the System is attached to
     IteratorFn m_iterator;               //!< The function that will get called
     std::vector<System*> m_dependencies; //!< The dependencies of the system
-    std::vector<EntityGroupId> m_groups; //!< List of entity groups that match query
+    std::vector<EntityGroupId>
+        m_groups; //!< List of entity groups that match query
 };
 
 } // namespace ply
 
 #ifndef PLY_ECS_WORLD_H
-#include <ply/ecs/System.inl>
+    #include <ply/ecs/System.inl>
 #endif

@@ -33,9 +33,9 @@ ObjectPool::ObjectPool(ObjectPool &&other) noexcept : m_firstPage(other.m_firstP
 ///////////////////////////////////////////////////////////
 ObjectPool &ObjectPool::operator=(ObjectPool &&other) noexcept {
     if (&other != this) {
-        m_firstPage = m_firstPage;
-        m_objectSize = m_objectSize;
-        m_pageSize = m_pageSize;
+        m_firstPage = other.m_firstPage;
+        m_objectSize = other.m_objectSize;
+        m_pageSize = other.m_pageSize;
 
         other.m_firstPage = 0;
         other.m_objectSize = 0;
@@ -162,7 +162,7 @@ void ObjectPool::free(void *ptr) {
 #ifndef NDEBUG
     // In debug mode, keep track of which slots are being used to prevent double freeing
     uint32_t index = ((uint8_t *)ptr - (uint8_t *)(header + 1)) / m_objectSize;
-    CHECK_F(header->m_used[index], "The pointer 0x%08X is being freed from the object pool more than once, this will cause undefined behavior in release builds", ptr);
+    CHECK_F(header->m_used[index], "The pointer 0x%08X is being freed from the object pool more than once, this will cause undefined behavior in release builds", (size_t)ptr);
 
     header->m_used[index] = false;
 #endif

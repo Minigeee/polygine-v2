@@ -21,7 +21,8 @@ file(GLOB ENGINE_SRC
 file(GLOB GRAPHICS_SRC
     ${SRC_DIR}/graphics/*.cpp
     ${INC_DIR}/graphics/*.h
-    ${INC_DIR}/graphics/*.inl)
+    ${INC_DIR}/graphics/*.inl
+    ${SRC_DIR}/graphics/RenderImpl.h)
 file(GLOB MATH_SRC
     ${SRC_DIR}/math/*.cpp
     ${INC_DIR}/math/*.h

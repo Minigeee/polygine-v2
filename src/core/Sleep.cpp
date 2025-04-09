@@ -6,7 +6,7 @@
 namespace ply {
 
 void sleep(Time time) {
-    uint64_t us = time.toMicroseconds();
+    uint64_t us = time.microseconds();
 
     if (us > 0) {
         // Use C++11 sleep_for
@@ -18,7 +18,7 @@ void sleep(float seconds) {
     if (seconds > 0.0f) {
         // Use C++11 sleep_for
         std::this_thread::sleep_for(
-            std::chrono::microseconds(Time::fromSeconds(seconds).toMicroseconds())
+            std::chrono::microseconds(Time::fromSeconds(seconds).microseconds())
         );
     }
 }

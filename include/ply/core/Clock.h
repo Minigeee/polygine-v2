@@ -19,6 +19,14 @@ public:
     ///
     ///////////////////////////////////////////////////////////
     Clock();
+    
+    ///////////////////////////////////////////////////////////
+    /// \brief Get current time
+    ///
+    /// \return A Time containing the current time
+    ///
+    ///////////////////////////////////////////////////////////
+    static Time now();
 
     ///////////////////////////////////////////////////////////
     /// \brief Restart the clock at zero
@@ -72,12 +80,12 @@ private:
 ///		std::cout << "Hello World!\n";
 ///
 /// // Print the amount of elapsed time and restart the clock
-/// std::cout << clock.restart().toSeconds() << "s\n";
+/// std::cout << clock.restart().seconds() << "s\n";
 ///
 /// std::cout << "Hello World!\n";
 ///
 /// // Print the amount of elapsed time, but don't restart the clock
-/// std::cout << clock.getElapsedTime().toSeconds() << "s\n";
+/// std::cout << clock.getElapsedTime().seconds() << "s\n";
 ///
 /// \endcode
 ///

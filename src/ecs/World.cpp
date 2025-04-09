@@ -273,7 +273,7 @@ void World::tick() {
         m_isFirstTick = false;
     }
 
-    m_elapsed = m_clock.restart().toSeconds();
+    m_elapsed = m_clock.restart().seconds();
 
     // Systems
     executeSystems();

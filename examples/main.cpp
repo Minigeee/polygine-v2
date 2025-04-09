@@ -10,6 +10,9 @@
 #include <ply/engine/Input.h>
 #include <ply/engine/Window.h>
 
+#include <ply/graphics/Pipeline.h>
+#include <ply/graphics/RenderDevice.h>
+
 #include <iostream>
 
 struct Position {
@@ -53,11 +56,14 @@ void ecsTest() {
             printf("a\n");
         }
     );
-    ply::System* b = world.system().before(a).match<Position>().each(
-        [](ply::QueryIterator it, Position& pos) {
+    // clang-format off
+    ply::System* b = world.system()
+        .before(a)
+        .match<Position>()
+        .each([](ply::QueryIterator it, Position& pos) {
             printf("b\n");
-        }
-    );
+        });
+    // clang-format on
     world.system().after(b).each([](ply::QueryIterator it) {
         printf("c\n");
     });
@@ -117,6 +123,53 @@ void schedulerTest() {
     barrier.wait();
 }
 
+///////////////////////////////////////////////////////////
+
+static const char* VSSource = R"(
+    struct PSInput 
+    { 
+        float4 Pos   : SV_POSITION; 
+        float3 Color : COLOR; 
+    };
+    
+    void main(in  uint    VertId : SV_VertexID,
+              out PSInput PSIn) 
+    {
+        float4 Pos[3];
+        Pos[0] = float4(-0.5, -0.5, 0.0, 1.0);
+        Pos[1] = float4( 0.0, +0.5, 0.0, 1.0);
+        Pos[2] = float4(+0.5, -0.5, 0.0, 1.0);
+    
+        float3 Col[3];
+        Col[0] = float3(1.0, 0.0, 0.0); // red
+        Col[1] = float3(0.0, 1.0, 0.0); // green
+        Col[2] = float3(0.0, 0.0, 1.0); // blue
+    
+        PSIn.Pos   = Pos[VertId];
+        PSIn.Color = Col[VertId];
+    }
+    )";
+
+// Pixel shader simply outputs interpolated vertex color
+static const char* PSSource = R"(
+    struct PSInput 
+    { 
+        float4 Pos   : SV_POSITION; 
+        float3 Color : COLOR; 
+    };
+    
+    struct PSOutput
+    { 
+        float4 Color : SV_TARGET; 
+    };
+    
+    void main(in  PSInput  PSIn,
+              out PSOutput PSOut)
+    {
+        PSOut.Color = float4(PSIn.Color.rgb, 1.0);
+    }
+    )";
+
 int main(int argc, char* argv[]) {
     // WIP :
 
@@ -128,6 +181,23 @@ int main(int argc, char* argv[]) {
 
     // Enable gamepad support
     ply::Gamepad::enable();
+
+    // Initialize renderer
+    ply::RenderDevice device;
+    device.initialize(&window);
+
+    auto vs =
+        device.shader().type(ply::Shader::Vertex).fromSource(VSSource).load();
+    auto ps =
+        device.shader().type(ply::Shader::Pixel).fromSource(PSSource).load();
+
+    auto pipeline =
+        device.pipeline()
+            .addShader(&vs)
+            .addShader(&ps)
+            .cull(ply::CullMode::None)
+            .depth(false)
+            .create();
 
     window.addListener<ply::Event::MouseButton>(
         [](const ply::Event::MouseButton& event) {
@@ -175,6 +245,11 @@ int main(int argc, char* argv[]) {
                 ))
                 std::cout << "Gamepad button pressed Y\n";
         }
+
+        device.bindBackBuffer();
+
+        device.draw(&pipeline, 3);
+        device.present();
 
         ply::sleep(1.0f / 60.0f);
     }

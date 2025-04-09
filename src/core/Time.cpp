@@ -5,10 +5,12 @@
 namespace ply {
 
 ///////////////////////////////////////////////////////////
-Time::Time() : m_microseconds(0) {}
+Time::Time() :
+    m_microseconds(0) {}
 
 ///////////////////////////////////////////////////////////
-Time::Time(int64_t micro) : m_microseconds(micro) {}
+Time::Time(int64_t micro) :
+    m_microseconds(micro) {}
 
 ///////////////////////////////////////////////////////////
 Time Time::fromMinutes(double minutes) {
@@ -16,12 +18,12 @@ Time Time::fromMinutes(double minutes) {
 }
 
 ///////////////////////////////////////////////////////////
-Time Time::fromSeconds(float seconds) {
+Time Time::fromSeconds(double seconds) {
     return Time((int64_t)((double)seconds * 1000000));
 }
 
 ///////////////////////////////////////////////////////////
-Time Time::fromMilliseconds(int32_t milliseconds) {
+Time Time::fromMilliseconds(int64_t milliseconds) {
     return Time((int64_t)milliseconds * 1000);
 }
 
@@ -31,139 +33,139 @@ Time Time::fromMicroseconds(int64_t microseconds) {
 }
 
 ///////////////////////////////////////////////////////////
-double Time::toMinutes() const {
-    return m_microseconds * 0.000001 / 60.0;
+double Time::minutes() const {
+    return (double)(m_microseconds * 0.000001 / 60.0);
 }
 
 ///////////////////////////////////////////////////////////
-float Time::toSeconds() const {
-    return (float)(m_microseconds * 0.000001);
+double Time::seconds() const {
+    return (double)(m_microseconds * 0.000001);
 }
 
 ///////////////////////////////////////////////////////////
-int32_t Time::toMilliseconds() const {
+int64_t Time::milliseconds() const {
     return (int32_t)(m_microseconds * 0.001);
 }
 
 ///////////////////////////////////////////////////////////
-int64_t Time::toMicroseconds() const {
+int64_t Time::microseconds() const {
     return m_microseconds;
 }
 
 ///////////////////////////////////////////////////////////
 Time operator-(Time a, Time b) {
-    return Time(a.toMicroseconds() - b.toMicroseconds());
+    return Time(a.microseconds() - b.microseconds());
 }
 
 ///////////////////////////////////////////////////////////
 Time operator-=(Time& a, Time b) {
-    a = Time(a.toMicroseconds() - b.toMicroseconds());
+    a = Time(a.microseconds() - b.microseconds());
     return a;
 }
 
 ///////////////////////////////////////////////////////////
 Time operator+(Time a, Time b) {
-    return Time(a.toMicroseconds() + b.toMicroseconds());
+    return Time(a.microseconds() + b.microseconds());
 }
 
 ///////////////////////////////////////////////////////////
 Time operator+=(Time& a, Time b) {
-    a = Time(a.toMicroseconds() + b.toMicroseconds());
+    a = Time(a.microseconds() + b.microseconds());
     return a;
 }
 
 ///////////////////////////////////////////////////////////
 Time operator*(Time a, int64_t b) {
-    return Time(a.toMicroseconds() * b);
+    return Time(a.microseconds() * b);
 }
 
 ///////////////////////////////////////////////////////////
 Time operator*(int64_t a, Time b) {
-    return Time(a * b.toMicroseconds());
+    return Time(a * b.microseconds());
 }
 
 ///////////////////////////////////////////////////////////
 Time& operator*=(Time& a, int64_t b) {
-    a = Time(a.toMicroseconds() * b);
+    a = Time(a.microseconds() * b);
     return a;
 }
 
 ///////////////////////////////////////////////////////////
 Time operator*(Time a, double b) {
-    return Time((int64_t)(a.toMicroseconds() * b));
+    return Time((int64_t)(a.microseconds() * b));
 }
 
 ///////////////////////////////////////////////////////////
 Time operator*(double a, Time b) {
-    return Time((int64_t)(a * b.toMicroseconds()));
+    return Time((int64_t)(a * b.microseconds()));
 }
 
 ///////////////////////////////////////////////////////////
 Time& operator*=(Time& a, double b) {
-    a = Time((int64_t)(a.toMicroseconds() * b));
+    a = Time((int64_t)(a.microseconds() * b));
     return a;
 }
 
 ///////////////////////////////////////////////////////////
 Time operator/(Time a, int64_t b) {
-    return Time(a.toMicroseconds() / b);
+    return Time(a.microseconds() / b);
 }
 
 ///////////////////////////////////////////////////////////
 Time operator/(int64_t a, Time b) {
-    return Time(a / b.toMicroseconds());
+    return Time(a / b.microseconds());
 }
 
 ///////////////////////////////////////////////////////////
 Time& operator/=(Time& a, int64_t b) {
-    a = Time(a.toMicroseconds() / b);
+    a = Time(a.microseconds() / b);
     return a;
 }
 
 ///////////////////////////////////////////////////////////
 Time operator/(Time a, double b) {
-    return Time((int64_t)(a.toMicroseconds() / b));
+    return Time((int64_t)(a.microseconds() / b));
 }
 
 ///////////////////////////////////////////////////////////
 Time operator/(double a, Time b) {
-    return Time((int64_t)(a / b.toMicroseconds()));
+    return Time((int64_t)(a / b.microseconds()));
 }
 
 ///////////////////////////////////////////////////////////
 Time& operator/=(Time& a, double b) {
-    a = Time((int64_t)(a.toMicroseconds() / b));
+    a = Time((int64_t)(a.microseconds() / b));
     return a;
 }
 
 ///////////////////////////////////////////////////////////
 bool operator==(Time a, Time b) {
-    return a.toMicroseconds() == b.toMicroseconds();
+    return a.microseconds() == b.microseconds();
 }
 
 ///////////////////////////////////////////////////////////
 bool operator!=(Time a, Time b) {
-    return a.toMicroseconds() != b.toMicroseconds();
+    return a.microseconds() != b.microseconds();
 }
 
 ///////////////////////////////////////////////////////////
 bool operator>(Time a, Time b) {
-    return a.toMicroseconds() > b.toMicroseconds();
+    return a.microseconds() > b.microseconds();
 }
 
 ///////////////////////////////////////////////////////////
 bool operator<(Time a, Time b) {
-    return a.toMicroseconds() < b.toMicroseconds();
+    return a.microseconds() < b.microseconds();
 }
 
 ///////////////////////////////////////////////////////////
 bool operator>=(Time a, Time b) {
-    return a.toMicroseconds() >= b.toMicroseconds();
+    return a.microseconds() >= b.microseconds();
 }
 
 ///////////////////////////////////////////////////////////
 bool operator<=(Time a, Time b) {
-    return a.toMicroseconds() <= b.toMicroseconds();
+    return a.microseconds() <= b.microseconds();
 }
 
-}
+} // namespace ply

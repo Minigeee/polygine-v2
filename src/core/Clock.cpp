@@ -5,7 +5,15 @@ using namespace std::chrono;
 namespace ply {
 
 ///////////////////////////////////////////////////////////
-Clock::Clock() : m_startTime(high_resolution_clock::now()) {}
+Clock::Clock() :
+    m_startTime(high_resolution_clock::now()) {}
+
+///////////////////////////////////////////////////////////
+Time Clock::now() {
+    return Time(time_point_cast<microseconds>(high_resolution_clock::now())
+                    .time_since_epoch()
+                    .count());
+}
 
 ///////////////////////////////////////////////////////////
 Time Clock::restart() {
@@ -23,7 +31,10 @@ Time Clock::restart() {
 ///////////////////////////////////////////////////////////
 Time Clock::getElapsedTime() const {
     // Get time elapsed since last start time
-    return Time(duration_cast<microseconds>(high_resolution_clock::now() - m_startTime).count());
+    return Time(
+        duration_cast<microseconds>(high_resolution_clock::now() - m_startTime)
+            .count()
+    );
 }
 
-}
+} // namespace ply

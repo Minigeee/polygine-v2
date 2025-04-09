@@ -76,7 +76,7 @@ class World {
     friend class Observer;
     friend class System;
 
-  public:
+public:
     ///////////////////////////////////////////////////////////
     /// \brief Type of entity events
     ///
@@ -91,7 +91,7 @@ class World {
         NUM_EVENTS
     };
 
-  public:
+public:
     ///////////////////////////////////////////////////////////
     /// \brief Default constructor
     ///
@@ -331,7 +331,7 @@ class World {
     ///////////////////////////////////////////////////////////
     void setScheduler(Scheduler* scheduler);
 
-  private:
+private:
     ///////////////////////////////////////////////////////////
     /// \brief Data for entities
     ///
@@ -508,7 +508,7 @@ class World {
     ///////////////////////////////////////////////////////////
     QueryFactory* registerQuery(QueryFactory* query);
 
-  private:
+private:
     SharedMutex m_groupsMutex; //!< Mutex protecting access to entity groups
     HandleArray<EntityData>
         m_entities; //!< Array of entity data mapping IDs to groups and indices

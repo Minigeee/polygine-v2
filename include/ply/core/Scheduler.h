@@ -211,8 +211,6 @@ public:
 #ifndef DOXYGEN_SKIP
     Scheduler(const Scheduler&) = delete;
     Scheduler& operator=(const Scheduler&) = delete;
-    Scheduler(Scheduler&&) = default;
-    Scheduler& operator=(Scheduler&&) = default;
 #endif
 
     ///////////////////////////////////////////////////////////

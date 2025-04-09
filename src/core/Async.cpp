@@ -38,7 +38,7 @@ Handle Async::onTimeout(const std::function<void()>& callback, Time delay) {
         {
             // Wait delay
             std::unique_lock<std::mutex> lock(timer->m_mutex);
-            timer->m_cv.wait_for(lock, std::chrono::milliseconds(delay.toMilliseconds()));
+            timer->m_cv.wait_for(lock, std::chrono::milliseconds(delay.milliseconds()));
 
             // Callback if still active
             if (timer->m_active && callback)
