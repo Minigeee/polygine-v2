@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <ply/core/Macros.h>
 
 namespace ply {
 
@@ -969,7 +970,7 @@ enum class BlendOperation : int8_t {
     NUM_OPERATIONS
 };
 
-enum class GpuType : uint8_t {
+enum class Type : uint8_t {
     Undefined = 0, ///< Undefined type
     Int8,          ///< Signed 8-bit integer
     Int16,         ///< Signed 16-bit integer
@@ -983,5 +984,219 @@ enum class GpuType : uint8_t {
     NUM_TYPES      ///< Helper value storing total number of types in the
                    ///< enumeration
 };
+
+enum class ResourceUsage : uint8_t {
+    /// A resource that can only be read by the GPU. It cannot be written by the
+    /// GPU,
+    /// and cannot be accessed at all by the CPU. This type of resource must be
+    /// initialized
+    /// when it is created, since it cannot be changed after creation. \n
+    /// D3D11 Counterpart: D3D11_USAGE_IMMUTABLE. OpenGL counterpart:
+    /// GL_STATIC_DRAW
+    /// \remarks Static buffers do not allow CPU access and must use
+    /// CPU_ACCESS_NONE flag.
+    Immutable = 0,
+
+    /// A resource that requires read and write access by the GPU and can also
+    /// be occasionally
+    /// written by the CPU.  \n
+    /// D3D11 Counterpart: D3D11_USAGE_DEFAULT. OpenGL counterpart:
+    /// GL_DYNAMIC_DRAW.
+    /// \remarks Default buffers do not allow CPU access and must use
+    /// CPU_ACCESS_NONE flag.
+    Default,
+
+    /// A resource that can be read by the GPU and written at least once per
+    /// frame by the CPU.  \n
+    /// D3D11 Counterpart: D3D11_USAGE_DYNAMIC. OpenGL counterpart:
+    /// GL_STREAM_DRAW
+    /// \remarks Dynamic buffers must use CPU_ACCESS_WRITE flag.
+    Dynamic,
+
+    /// A resource that facilitates transferring data between GPU and CPU. \n
+    /// D3D11 Counterpart: D3D11_USAGE_STAGING. OpenGL counterpart:
+    /// GL_STATIC_READ or
+    /// GL_STATIC_COPY depending on the CPU access flags.
+    /// \remarks Staging buffers must use exactly one of CPU_ACCESS_WRITE or
+    /// CPU_ACCESS_READ flags.
+    Staging,
+
+    /// A resource residing in a unified memory (e.g. memory shared between CPU
+    /// and GPU),
+    /// that can be read and written by GPU and can also be directly accessed by
+    /// CPU.
+    ///
+    /// \remarks An application should check if unified memory is available on
+    /// the device by querying
+    ///          the adapter info (see
+    ///          Diligent::IRenderDevice::GetAdapterInfo().Memory and
+    ///          Diligent::AdapterMemoryInfo).
+    ///          If there is no unified memory, an application should choose
+    ///          another usage type (typically, USAGE_DEFAULT).
+    ///
+    ///          Unified resources must use at least one of CPU_ACCESS_WRITE or
+    ///          CPU_ACCESS_READ flags.
+    ///          An application should check supported unified memory CPU access
+    ///          types by querying the device caps.
+    ///          (see Diligent::AdapterMemoryInfo::UnifiedMemoryCPUAccess).
+    Unified,
+
+    /// A resource that can be partially committed to physical memory.
+    Sparse,
+
+    /// Helper value indicating the total number of elements in the enum
+    NUM_USAGES
+};
+
+enum class ResourceBind : uint32_t {
+    /// Undefined binding.
+    None = 0,
+
+    /// A buffer can be bound as a vertex buffer.
+    VertexBuffer = 1u << 0u,
+
+    /// A buffer can be bound as an index buffer.
+    IndexBuffer = 1u << 1u,
+
+    /// A buffer can be bound as a uniform buffer.
+    ///
+    /// \warning This flag may not be combined with any other bind flag.
+    UniformBuffer = 1u << 2u,
+
+    /// A buffer or a texture can be bound as a shader resource.
+    ShaderResource = 1u << 3u,
+
+    /// A buffer can be bound as a target for stream output stage.
+    StreamOutput = 1u << 4u,
+
+    /// A texture can be bound as a render target.
+    RenderTarget = 1u << 5u,
+
+    /// A texture can be bound as a depth-stencil target.
+    DepthStencil = 1u << 6u,
+
+    /// A buffer or a texture can be bound as an unordered access view.
+    UnorderedAccess = 1u << 7u,
+
+    /// A buffer can be bound as the source buffer for indirect draw commands.
+    IndirectDrawArgs = 1u << 8u,
+
+    /// A texture can be used as render pass input attachment.
+    InputAttachment = 1u << 9u,
+
+    /// A buffer can be used as a scratch buffer or as the source of primitive
+    /// data
+    /// for acceleration structure building.
+    RayTracing = 1u << 10u,
+
+    /// A texture can be used as shading rate texture.
+    ShadingRate = 1u << 11u
+};
+BIT_OPERATOR(ResourceBind);
+
+enum class ResourceAccess : uint8_t {
+    None = 0u,        ///< No CPU access
+    Read = 1u << 0u,  ///< A resource can be mapped for reading
+    Write = 1u << 1u, ///< A resource can be mapped for writing
+};
+BIT_OPERATOR(ResourceAccess);
+
+enum class ShaderResourceType : uint8_t {
+    /// Shader resource bound to the variable is the same for all SRB
+    /// instances. It must be set *once* directly through Pipeline State
+    /// object.
+    Static = 0,
+
+    /// Shader resource bound to the variable is specific to the shader
+    /// resource binding instance. It must be set *once* through
+    /// ResourceBinding and cannot be change once bound.
+    Mutable,
+
+    /// Shader variable binding is dynamic. It can be set multiple times for
+    /// every instance of shader resource binding.
+    Dynamic,
+
+    /// Total number of shader variable types
+    NUM_TYPES
+};
+
+enum class TextureFilter : uint8_t {
+    Unknown = 0, ///< Unknown filter type
+    Point,       ///< Point filtering
+    Linear,      ///< Linear filtering
+    Anisotropic, ///< Anisotropic filtering
+};
+
+enum class TextureAddress : uint8_t {
+    /// Unknown mode
+    Unknown = 0,
+
+    /// Tile the texture at every integer junction. \n
+    /// Direct3D Counterpart:
+    /// D3D11_TEXTURE_ADDRESS_WRAP/D3D12_TEXTURE_ADDRESS_MODE_WRAP. OpenGL
+    /// counterpart: GL_REPEAT
+    Wrap = 1,
+
+    /// Flip the texture at every integer junction. \n
+    /// Direct3D Counterpart:
+    /// D3D11_TEXTURE_ADDRESS_MIRROR/D3D12_TEXTURE_ADDRESS_MODE_MIRROR. OpenGL
+    /// counterpart: GL_MIRRORED_REPEAT
+    Mirror = 2,
+
+    /// Texture coordinates outside the range [0.0, 1.0] are set to the
+    /// texture color at 0.0 or 1.0, respectively. \n
+    /// Direct3D Counterpart:
+    /// D3D11_TEXTURE_ADDRESS_CLAMP/D3D12_TEXTURE_ADDRESS_MODE_CLAMP. OpenGL
+    /// counterpart: GL_CLAMP_TO_EDGE
+    Clamp = 3,
+
+    /// Texture coordinates outside the range [0.0, 1.0] are set to the border
+    /// color
+    /// specified in SamplerDesc structure. \n
+    /// Direct3D Counterpart:
+    /// D3D11_TEXTURE_ADDRESS_BORDER/D3D12_TEXTURE_ADDRESS_MODE_BORDER. OpenGL
+    /// counterpart: GL_CLAMP_TO_BORDER
+    Border = 4,
+
+    /// Similar to TEXTURE_ADDRESS_MIRROR and TEXTURE_ADDRESS_CLAMP. Takes the
+    /// absolute
+    /// value of the texture coordinate (thus, mirroring around 0), and then
+    /// clamps to
+    /// the maximum value. \n
+    /// Direct3D Counterpart:
+    /// D3D11_TEXTURE_ADDRESS_MIRROR_ONCE/D3D12_TEXTURE_ADDRESS_MODE_MIRROR_ONCE.
+    /// OpenGL counterpart: GL_MIRROR_CLAMP_TO_EDGE
+    /// \note GL_MIRROR_CLAMP_TO_EDGE is only available in OpenGL4.4+, and is
+    /// not available until at least OpenGLES3.1
+    MirrorOnce = 5
+};
+
+enum class MapMode : uint8_t { Read = 0x01, Write = 0x02, ReadWrite = 0x03 };
+
+enum class MapFlag : uint8_t {
+    None = 0x000,
+
+    /// Specifies that map operation should not wait until previous command that
+    /// using the same resource completes. Map returns null pointer if the
+    /// resource is still in use.\n D3D11 counterpart:
+    /// D3D11_MAP_FLAG_DO_NOT_WAIT
+    /// \note: OpenGL does not have corresponding flag, so a buffer will always
+    /// be mapped
+    DoNotWait = 0x001,
+
+    /// Previous contents of the resource will be undefined. This flag is only
+    /// compatible with MAP_WRITE\n D3D11 counterpart: D3D11_MAP_WRITE_DISCARD.
+    /// OpenGL counterpart: GL_MAP_INVALIDATE_BUFFER_BIT
+    /// \note OpenGL implementation may orphan a buffer instead
+    Discard = 0x002,
+
+    /// The system will not synchronize pending operations before mapping the
+    /// buffer. It is responsibility of the application to make sure that the
+    /// buffer contents is not overwritten while it is in use by the GPU.\n
+    /// D3D11 counterpart:  D3D11_MAP_WRITE_NO_OVERWRITE. OpenGL counterpart:
+    /// GL_MAP_UNSYNCHRONIZED_BIT
+    NoOverwrite = 0x004
+};
+BIT_OPERATOR(MapFlag);
 
 } // namespace ply

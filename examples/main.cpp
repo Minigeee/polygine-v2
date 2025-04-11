@@ -9,10 +9,12 @@
 #include <ply/engine/Gamepad.h>
 #include <ply/engine/Input.h>
 #include <ply/engine/Window.h>
+#include <ply/math/Transform.h>
 
 #include <ply/graphics/Pipeline.h>
 #include <ply/graphics/RenderDevice.h>
 
+#include <Common/interface/AdvancedMath.hpp>
 #include <iostream>
 
 struct Position {
@@ -125,53 +127,71 @@ void schedulerTest() {
 
 ///////////////////////////////////////////////////////////
 
-static const char* VSSource = R"(
-    struct PSInput 
-    { 
-        float4 Pos   : SV_POSITION; 
-        float3 Color : COLOR; 
+ply::Buffer createVertexBuffer(ply::RenderDevice& device) {
+    struct Vertex {
+        ply::Vector3f pos;
+        ply::Vector4f color;
     };
-    
-    void main(in  uint    VertId : SV_VertexID,
-              out PSInput PSIn) 
-    {
-        float4 Pos[3];
-        Pos[0] = float4(-0.5, -0.5, 0.0, 1.0);
-        Pos[1] = float4( 0.0, +0.5, 0.0, 1.0);
-        Pos[2] = float4(+0.5, -0.5, 0.0, 1.0);
-    
-        float3 Col[3];
-        Col[0] = float3(1.0, 0.0, 0.0); // red
-        Col[1] = float3(0.0, 1.0, 0.0); // green
-        Col[2] = float3(0.0, 0.0, 1.0); // blue
-    
-        PSIn.Pos   = Pos[VertId];
-        PSIn.Color = Col[VertId];
-    }
-    )";
+    constexpr Vertex CubeVerts[8] = {
+        {ply::Vector3f{-1, -1, -1}, ply::Vector4f{1, 0, 0, 1}},
+        {ply::Vector3f{-1, +1, -1}, ply::Vector4f{0, 1, 0, 1}},
+        {ply::Vector3f{+1, +1, -1}, ply::Vector4f{0, 0, 1, 1}},
+        {ply::Vector3f{+1, -1, -1}, ply::Vector4f{1, 1, 1, 1}},
 
-// Pixel shader simply outputs interpolated vertex color
-static const char* PSSource = R"(
-    struct PSInput 
-    { 
-        float4 Pos   : SV_POSITION; 
-        float3 Color : COLOR; 
+        {ply::Vector3f{-1, -1, +1}, ply::Vector4f{1, 1, 0, 1}},
+        {ply::Vector3f{-1, +1, +1}, ply::Vector4f{0, 1, 1, 1}},
+        {ply::Vector3f{+1, +1, +1}, ply::Vector4f{1, 0, 1, 1}},
+        {ply::Vector3f{+1, -1, +1}, ply::Vector4f{0.2f, 0.2f, 0.2f, 1.f}},
     };
-    
-    struct PSOutput
-    { 
-        float4 Color : SV_TARGET; 
+
+    return device.buffer()
+        .bind(ply::ResourceBind::VertexBuffer)
+        .usage(ply::ResourceUsage::Immutable)
+        .data(CubeVerts, sizeof(CubeVerts))
+        .create();
+}
+
+ply::Buffer createIndexBuffer(ply::RenderDevice& device) {
+    // clang-format off
+    constexpr uint32_t Indices[] = {
+        2,0,1, 2,3,0,
+        4,6,5, 4,7,6,
+        0,7,4, 0,3,7,
+        1,0,4, 1,4,5,
+        1,5,2, 5,6,2,
+        3,6,7, 3,2,6
     };
-    
-    void main(in  PSInput  PSIn,
-              out PSOutput PSOut)
-    {
-        PSOut.Color = float4(PSIn.Color.rgb, 1.0);
-    }
-    )";
+    // clang-format on
+
+    return device.buffer()
+        .bind(ply::ResourceBind::IndexBuffer)
+        .usage(ply::ResourceUsage::Immutable)
+        .data(Indices, sizeof(Indices))
+        .create();
+}
+
+ply::Matrix4f createTransformMatrix(float time) {
+    ply::Matrix4f T = glm::rotate(glm::mat4(1.0f), glm::radians(time * 45.0f), ply::Vector3f{0, 1, 0});
+
+    ply::Matrix4f V = glm::lookAt(ply::Vector3f{5, 0, 5}, ply::Vector3f{0, 0, 0}, ply::Vector3f{0, 1, 0});
+
+    ply::Matrix4f P = ply::toPerspectiveMatrix(45.0f, 8.0f / 6.0f, 0.1f, 100.0f);
+
+    return P * V * T;
+}
 
 int main(int argc, char* argv[]) {
     // WIP :
+    // - [X] Pipeline resource layout
+    // - [X] Pipeline static variable setter
+    // - [X] Pipeline resource binding api
+    // - [X] Buffer mapping util
+    // - [X] Render context methods: set buffers, clear, set pipeline, commit
+    // resources
+    //    - Try to figure out a way to more cleanly expose these functionalities
+    // - [X] Indexed draw
+    // - [X] Finish setting up cube demo: create shaders, apply transform
+    // matrices
 
     // ecsTest();
     // schedulerTest();
@@ -186,18 +206,33 @@ int main(int argc, char* argv[]) {
     ply::RenderDevice device;
     device.initialize(&window);
 
-    auto vs =
-        device.shader().type(ply::Shader::Vertex).fromSource(VSSource).load();
-    auto ps =
-        device.shader().type(ply::Shader::Pixel).fromSource(PSSource).load();
+    auto vs = device.shader().type(ply::Shader::Vertex).file("cube.vsh").load();
+    auto ps = device.shader().type(ply::Shader::Pixel).file("cube.psh").load();
 
     auto pipeline =
         device.pipeline()
-            .addShader(&vs)
-            .addShader(&ps)
-            .cull(ply::CullMode::None)
-            .depth(false)
+            .shader(&vs)
+            .shader(&ps)
+            .addInputLayout(0, 0, 3, ply::Type::Float32) // Position
+            .addInputLayout(1, 0, 4, ply::Type::Float32) // Color
+            .cull(ply::CullMode::Front) // The vertex order is wrong in index buffer
             .create();
+
+    // Create constants buffer
+    auto buffer =
+        device.buffer()
+            .bind(ply::ResourceBind::UniformBuffer)
+            .usage(ply::ResourceUsage::Dynamic)
+            .access(ply::ResourceAccess::Write)
+            .size(sizeof(ply::Matrix4f))
+            .create();
+    pipeline.setStaticVariable(ply::Shader::Vertex, "Constants", buffer);
+
+    // Create default resource binding
+    auto binding = pipeline.createResourceBinding();
+
+    auto vertexBuffer = createVertexBuffer(device);
+    auto indexBuffer = createIndexBuffer(device);
 
     window.addListener<ply::Event::MouseButton>(
         [](const ply::Event::MouseButton& event) {
@@ -219,6 +254,8 @@ int main(int argc, char* argv[]) {
     );
 
     auto gamepads = ply::Gamepad::getDevices();
+
+    ply::Clock clock;
 
     while (!window.shouldClose()) {
         ply::Input::poll();
@@ -246,12 +283,20 @@ int main(int argc, char* argv[]) {
                 std::cout << "Gamepad button pressed Y\n";
         }
 
-        device.bindBackBuffer();
+        // Update transform matrix
+        float time = clock.getElapsedTime().seconds();
+        auto transform = createTransformMatrix(time);
+        ply::Matrix4f* mapped = (ply::Matrix4f*)buffer.map(ply::MapMode::Write, ply::MapFlag::Discard);
+        mapped[0] = glm::transpose(transform);
+        buffer.unmap();
 
-        device.draw(&pipeline, 3);
-        device.present();
+        device.context.bindBackBuffer();
+        device.context.clear(ply::ClearFlag::Color | ply::ClearFlag::Depth);
 
-        ply::sleep(1.0f / 60.0f);
+        device.context.setVertexBuffers({&vertexBuffer});
+        device.context.setIndexBuffer(indexBuffer);
+        device.context.drawIndexed(pipeline, 36, &binding);
+        device.context.present();
     }
 
     return 0;

@@ -9,7 +9,7 @@ Matrix4f toTransformMatrix(const Vector3f& t, const Vector3f& r, const Vector3f&
     Vector3f c(cos(rot.x), cos(rot.y), cos(rot.z));
     Vector3f s(sin(rot.x), sin(rot.y), sin(rot.z));
 
-#ifdef USE_COLUMN_MAJOR
+#ifndef USE_ROW_MAJOR
     return Matrix4f(
         k.x * (c.z * c.y),
         k.x * (s.z * c.y),
@@ -50,7 +50,7 @@ Matrix4f toTransformMatrix(const Vector3f& t, const Vector3f& r, const Vector3f&
 
 ///////////////////////////////////////////////////////////
 Matrix4f toTransformMatrix(const Vector3f& t, const Quaternion& q, const Vector3f& k) {
-#ifdef USE_COLUMN_MAJOR
+#ifndef USE_ROW_MAJOR
     return Matrix4f(
         k.x * (1.0f - 2.0f * (q.y * q.y + q.z * q.z)),
         k.x * (2.0f * (q.x * q.y + q.w * q.z)),
@@ -93,7 +93,7 @@ Matrix4f toTransformMatrix(const Vector3f& t, const Quaternion& q, const Vector3
 Matrix4f toViewMatrix(const Vector3f& p, const Vector3f& f, const Vector3f& r) {
     Vector3f u = normalize(cross(r, f));
 
-#ifdef USE_COLUMN_MAJOR
+#ifndef USE_ROW_MAJOR
     return Matrix4f(
         r.x, u.x, -f.x, 0.0f,
         r.y, u.y, -f.y, 0.0f,
@@ -109,11 +109,10 @@ Matrix4f toViewMatrix(const Vector3f& p, const Vector3f& f, const Vector3f& r) {
 }
 
 ///////////////////////////////////////////////////////////
-Matrix4f toPerspectiveMatrix(float fov, float ar, float near, float far) {
-    float fovy = fov / ar;
-    fovy = tan(radians(fovy * 0.5f));
+Matrix4f toPerspectiveMatrix(float fovy, float ar, float near, float far) {
+    fovy = radians(fovy);
 
-#ifdef USE_COLUMN_MAJOR
+#ifndef USE_ROW_MAJOR
     return Matrix4f(
         1.0f / (ar * fovy), 0.0f, 0.0f, 0.0f,
         0.0f, 1.0f / fovy, 0.0f, 0.0f,
@@ -130,7 +129,7 @@ Matrix4f toPerspectiveMatrix(float fov, float ar, float near, float far) {
 
 ///////////////////////////////////////////////////////////
 Matrix4f toOrthographicMatrix(float left, float right, float bottom, float top, float near, float far) {
-#ifdef USE_COLUMN_MAJOR
+#ifndef USE_ROW_MAJOR
     return Matrix4f(
         2.0f / (right - left), 0.0f, 0.0f, 0.0f,
         0.0f, 2.0f / (top - bottom), 0.0f, 0.0f,

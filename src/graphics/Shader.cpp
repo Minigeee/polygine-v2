@@ -2,21 +2,29 @@
 
 #include "RenderImpl.h"
 #include <ply/core/PoolAllocator.h>
+#include <ply/graphics/RenderDevice.h>
 
 namespace ply {
 
 ///////////////////////////////////////////////////////////
-Shader::Shader() :
-    GpuResource(),
-    m_shader(nullptr) {}
+Shader::Shader(
+    priv::DeviceImpl* device,
+    void* resource,
+    Handle handle,
+    Shader::Type type
+) :
+    GpuResource(device, resource, handle),
+    m_type(type) {}
 
 ///////////////////////////////////////////////////////////
-Shader::Shader(priv::DeviceImpl* device, Handle shader, Shader::Type type) :
-    GpuResource(device),
-    m_handle(shader),
-    m_shader(nullptr) {
-    m_shader = m_device->m_shaders[shader];
-    m_type = type;
+Shader::Shader(RenderDevice* device) :
+    GpuResource(device) {}
+
+///////////////////////////////////////////////////////////
+Shader::~Shader() {
+    if (m_device && m_resource) {
+        m_device->m_shaders.remove(m_handle);
+    }
 }
 
 ///////////////////////////////////////////////////////////
@@ -25,11 +33,28 @@ Shader::Type Shader::getType() const {
 }
 
 ///////////////////////////////////////////////////////////
-Shader::~Shader() {}
+bool Shader::loadFromSource(const std::string& source, Shader::Type type) {
+    ShaderBuilder builder(m_device);
+    builder.type(type).source(source.c_str());
+    *this = builder.load();
+    return true;
+}
+
+///////////////////////////////////////////////////////////
+bool Shader::loadFromFile(const std::string& fname, Shader::Type type) {
+    ShaderBuilder builder(m_device);
+    builder.type(type).file(fname.c_str());
+    *this = builder.load();
+    return true;
+}
 
 ///////////////////////////////////////////////////////////
 ShaderBuilder::ShaderBuilder(RenderDevice* device) :
-    GpuResource(device) {
+    ShaderBuilder(device->m_device) {}
+
+///////////////////////////////////////////////////////////
+ShaderBuilder::ShaderBuilder(priv::DeviceImpl* device) :
+    GpuResourceBuilder(device) {
     m_desc = Pool<priv::ShaderDesc>::alloc();
 
     // Set shader factory
@@ -45,6 +70,21 @@ ShaderBuilder::~ShaderBuilder() {
     if (m_desc) {
         Pool<priv::ShaderDesc>::free(m_desc);
     }
+}
+
+///////////////////////////////////////////////////////////
+ShaderBuilder::ShaderBuilder(ShaderBuilder&& other) noexcept {
+    m_desc = other.m_desc;
+    other.m_desc = nullptr;
+}
+
+///////////////////////////////////////////////////////////
+ShaderBuilder& ShaderBuilder::operator=(ShaderBuilder&& other) noexcept {
+    if (this != &other) {
+        m_desc = other.m_desc;
+        other.m_desc = nullptr;
+    }
+    return *this;
 }
 
 ///////////////////////////////////////////////////////////
@@ -68,14 +108,14 @@ ShaderBuilder& ShaderBuilder::type(Shader::Type type) {
 }
 
 ///////////////////////////////////////////////////////////
-ShaderBuilder& ShaderBuilder::fromFile(const char* fname) {
+ShaderBuilder& ShaderBuilder::file(const char* fname) {
     m_desc->FilePath = fname;
     m_desc->Source = nullptr;
     return *this;
 }
 
 ///////////////////////////////////////////////////////////
-ShaderBuilder& ShaderBuilder::fromSource(const char* source) {
+ShaderBuilder& ShaderBuilder::source(const char* source) {
     m_desc->Source = source;
     m_desc->FilePath = nullptr;
     return *this;
@@ -98,44 +138,58 @@ ShaderBuilder& ShaderBuilder::language(Shader::Language language) {
 
 ///////////////////////////////////////////////////////////
 ShaderBuilder& ShaderBuilder::addMacro(const char* name, bool definition) {
-    // m_desc->MacroHelper.AddShaderMacro(name, definition);
+    m_desc->MacroList.push_back({name, definition ? "1" : "0"});
     return *this;
 }
 
 ///////////////////////////////////////////////////////////
 ShaderBuilder& ShaderBuilder::addMacro(const char* name, int definition) {
-    // m_desc->MacroHelper.AddShaderMacro(name, definition);
+    m_desc->MacroList.push_back({name, std::to_string(definition)});
     return *this;
 }
 
 ///////////////////////////////////////////////////////////
 ShaderBuilder& ShaderBuilder::addMacro(const char* name, uint32_t definition) {
-    // m_desc->MacroHelper.AddShaderMacro(name, definition);
+    m_desc->MacroList.push_back({name, std::to_string(definition)});
     return *this;
 }
 
 ///////////////////////////////////////////////////////////
 ShaderBuilder& ShaderBuilder::addMacro(const char* name, float definition) {
-    // m_desc->MacroHelper.AddShaderMacro(name, definition);
+    m_desc->MacroList.push_back({name, std::to_string(definition)});
     return *this;
 }
 
 ///////////////////////////////////////////////////////////
 ShaderBuilder& ShaderBuilder::addMacro(const char* name, double definition) {
-    // m_desc->MacroHelper.AddShaderMacro(name, definition);
+    m_desc->MacroList.push_back({name, std::to_string(definition)});
     return *this;
 }
 
 ///////////////////////////////////////////////////////////
-ShaderBuilder& ShaderBuilder::addMacro(const char* name, const char* definition) {
-    // m_desc->MacroHelper.AddShaderMacro(name, definition);
+ShaderBuilder&
+ShaderBuilder::addMacro(const char* name, const char* definition) {
+    m_desc->MacroList.push_back({name, definition});
+    return *this;
+}
+
+///////////////////////////////////////////////////////////
+ShaderBuilder&
+ShaderBuilder::addMacro(const char* name, const std::string& definition) {
+    m_desc->MacroList.push_back({name, definition});
     return *this;
 }
 
 ///////////////////////////////////////////////////////////
 Shader ShaderBuilder::load() {
     // Finalize macros
-    m_desc->Macros = m_desc->MacroHelper;
+    std::vector<ShaderMacro> macros;
+    macros.reserve(m_desc->MacroList.size());
+    for (const auto& macro : m_desc->MacroList) {
+        macros.push_back({macro.first.c_str(), macro.second.c_str()});
+    }
+    m_desc->Macros.Count = (uint32_t)macros.size();
+    m_desc->Macros.Elements = macros.data();
 
     // Create shader
     RefCntAutoPtr<IShader> shader;
@@ -144,7 +198,7 @@ Shader ShaderBuilder::load() {
     // Add to device
     Handle handle = m_device->m_shaders.push(shader);
 
-    return Shader(m_device, handle, m_type);
+    return Shader(m_device, shader, handle, m_type);
 }
 
 } // namespace ply

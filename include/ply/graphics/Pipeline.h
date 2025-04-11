@@ -11,6 +11,7 @@
 namespace ply {
 
 class RenderDevice;
+class Buffer;
 
 namespace priv {
     struct PipelineDesc;
@@ -30,8 +31,61 @@ struct InputLayout {
     uint32_t index;
     uint32_t slot;
     uint32_t components;
-    GpuType type;
+    Type type;
     bool normalized;
+};
+
+///////////////////////////////////////////////////////////
+/// \brief Shader variable descriptor
+///
+///////////////////////////////////////////////////////////
+struct ShaderVariableDesc {
+    std::string name;
+    Shader::Type stages;
+    ShaderResourceType type;
+};
+
+///////////////////////////////////////////////////////////
+/// \brief Shader sampler descriptor
+///
+///////////////////////////////////////////////////////////
+struct ShaderSamplerDesc {
+    std::string name;
+    Shader::Type stages;
+    TextureFilter filter;
+    TextureAddress address;
+};
+
+///////////////////////////////////////////////////////////
+/// \brief Shader resource binding
+///
+///////////////////////////////////////////////////////////
+class ResourceBinding : public GpuResource {
+public:
+    GPU_RESOURCE(ResourceBinding);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Destructor
+    ///
+    ///////////////////////////////////////////////////////////
+    ~ResourceBinding();
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Set a mutable or dynamic variable
+    ///
+    /// Mutable resources can only be set once per resource binding.
+    /// Dynamic resources can be set multiple times.
+    ///
+    /// \param stages - shader stages to which the variable belongs
+    /// \param name - name of the variable
+    /// \param resource - buffer object to bind to the variable
+    ///
+    ///////////////////////////////////////////////////////////
+    void set(
+        Shader::Type stages,
+        const char* name,
+        const Buffer& resource
+    );
 };
 
 ///////////////////////////////////////////////////////////
@@ -41,17 +95,7 @@ class Pipeline : public GpuResource {
     friend RenderDevice;
 
 public:
-    ///////////////////////////////////////////////////////////
-    /// \brief Constructor
-    ///
-    ///////////////////////////////////////////////////////////
-    Pipeline() : m_pipeline(nullptr) {}
-
-    ///////////////////////////////////////////////////////////
-    /// \brief Constructor
-    ///
-    ///////////////////////////////////////////////////////////
-    Pipeline(priv::DeviceImpl* device, Handle pipeline);
+    GPU_RESOURCE(Pipeline);
 
     ///////////////////////////////////////////////////////////
     /// \brief Destructor
@@ -59,20 +103,36 @@ public:
     ///////////////////////////////////////////////////////////
     ~Pipeline();
 
-    GPU_RESOURCE(Pipeline, m_pipeline);
+    ///////////////////////////////////////////////////////////
+    /// \brief Set a static variable
+    ///
+    /// \param [in] stages - shader stages to which the variable belongs
+    /// \param [in] name - name of the variable
+    /// \param [in] resource - buffer object to bind to the variable
+    ///
+    /// \remarks This method is used to set static variables, which are bound
+    /// once and cannot be changed later.
+    ///
+    ///////////////////////////////////////////////////////////
+    void setStaticVariable(
+        Shader::Type stages,
+        const char* name,
+        const Buffer& resource
+    );
 
-private:
-    Handle m_handle;
-    void* m_pipeline;
+    ResourceBinding createResourceBinding();
 };
 
 ///////////////////////////////////////////////////////////
 /// \brief A gpu pipeline object builder
 ///
 ///////////////////////////////////////////////////////////
-class PipelineBuilder : public GpuResource {
+class PipelineBuilder : public GpuResourceBuilder {
 public:
-    PipelineBuilder(RenderDevice* device, PipelineType type = PipelineType::Graphics);
+    PipelineBuilder(
+        RenderDevice* device,
+        PipelineType type = PipelineType::Graphics
+    );
     ~PipelineBuilder();
 
     PipelineBuilder(const PipelineBuilder&) = delete;
@@ -116,17 +176,32 @@ public:
         uint32_t index,
         uint32_t slot,
         uint32_t components,
-        GpuType type,
-        bool normalized
+        Type type,
+        bool normalized = false
     );
 
-    PipelineBuilder& addShader(Shader* shader);
+    PipelineBuilder& shader(Shader* shader);
+
+    PipelineBuilder& addVariable(
+        const std::string& name,
+        Shader::Type stages,
+        ShaderResourceType type
+    );
+
+    PipelineBuilder& addSampler(
+        const std::string& name,
+        Shader::Type stages,
+        TextureFilter filter,
+        TextureAddress address
+    );
 
     Pipeline create();
 
 private:
     priv::PipelineDesc* m_desc;
     std::vector<InputLayout> m_inputLayouts;
+    std::vector<ShaderVariableDesc> m_variables;
+    std::vector<ShaderSamplerDesc> m_samplers;
     uint32_t m_numTargets;
 };
 

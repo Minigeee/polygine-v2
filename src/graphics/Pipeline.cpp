@@ -4,27 +4,69 @@
 #include <ply/core/PoolAllocator.h>
 #include <ply/graphics/RenderDevice.h>
 
+#define PIPELINE(x) static_cast<Diligent::IPipelineState*>(x)
+#define RESOURCE_BINDING(x) static_cast<Diligent::IShaderResourceBinding*>(x)
+
 namespace ply {
 
 ///////////////////////////////////////////////////////////
-Pipeline::Pipeline(priv::DeviceImpl* device, Handle pipeline) :
-    GpuResource(device),
-    m_handle(pipeline) {
-    m_pipeline = m_device->m_pipelines[pipeline];
+ResourceBinding::~ResourceBinding() {
+    if (m_device && m_resource) {
+        m_device->m_resourceBindings.remove(m_handle);
+    }
+}
+
+///////////////////////////////////////////////////////////
+void ResourceBinding::set(
+    Shader::Type stages,
+    const char* name,
+    const Buffer& resource
+) {
+    CHECK_F(m_device && m_resource, "resource binding not initialized");
+    RESOURCE_BINDING(m_resource)
+        ->GetVariableByName(static_cast<Diligent::SHADER_TYPE>(stages), name)
+        ->Set(static_cast<Diligent::IBuffer*>(resource.getResource()));
 }
 
 ///////////////////////////////////////////////////////////
 Pipeline::~Pipeline() {
-    if (m_device && m_pipeline) {
+    if (m_device && m_resource) {
         m_device->m_pipelines.remove(m_handle);
     }
+}
 
-    m_pipeline = nullptr;
+///////////////////////////////////////////////////////////
+void Pipeline::setStaticVariable(
+    Shader::Type stages,
+    const char* name,
+    const Buffer& resource
+) {
+    CHECK_F(m_device && m_resource, "pipeline not initialized");
+    PIPELINE(m_resource)
+        ->GetStaticVariableByName(
+            static_cast<Diligent::SHADER_TYPE>(stages),
+            name
+        )
+        ->Set(static_cast<Diligent::IBuffer*>(resource.getResource()));
+}
+
+///////////////////////////////////////////////////////////
+ResourceBinding Pipeline::createResourceBinding() {
+    CHECK_F(m_device && m_resource, "pipeline not initialized");
+
+    // Create binding
+    RefCntAutoPtr<IShaderResourceBinding> binding;
+    PIPELINE(m_resource)->CreateShaderResourceBinding(&binding, true);
+
+    // Register
+    Handle handle = m_device->m_resourceBindings.push(binding);
+
+    return ResourceBinding(m_device, binding, handle);
 }
 
 ///////////////////////////////////////////////////////////
 PipelineBuilder::PipelineBuilder(RenderDevice* device, PipelineType type) :
-    GpuResource(device),
+    GpuResourceBuilder(device),
     m_desc(nullptr),
     m_numTargets(0) {
     m_desc = Pool<priv::PipelineDesc>::alloc();
@@ -57,20 +99,21 @@ PipelineBuilder::~PipelineBuilder() {
 }
 
 ///////////////////////////////////////////////////////////
-PipelineBuilder::PipelineBuilder(PipelineBuilder&& other) noexcept {
-    m_desc = other.m_desc;
-    m_numTargets = other.m_numTargets;
-    other.m_desc = nullptr;
-    other.m_numTargets = 0;
-}
+PipelineBuilder::PipelineBuilder(PipelineBuilder&& other) noexcept :
+    m_desc(std::exchange(other.m_desc, nullptr)),
+    m_numTargets(std::exchange(other.m_numTargets, 0)),
+    m_inputLayouts(std::move(other.m_inputLayouts)),
+    m_variables(std::move(other.m_variables)),
+    m_samplers(std::move(other.m_samplers)) {}
 
 ///////////////////////////////////////////////////////////
 PipelineBuilder& PipelineBuilder::operator=(PipelineBuilder&& other) noexcept {
     if (this != &other) {
-        m_desc = other.m_desc;
-        m_numTargets = other.m_numTargets;
-        other.m_desc = nullptr;
-        other.m_numTargets = 0;
+        m_desc = std::exchange(other.m_desc, nullptr);
+        m_numTargets = std::exchange(other.m_numTargets, 0);
+        m_inputLayouts = std::move(other.m_inputLayouts);
+        m_variables = std::move(other.m_variables);
+        m_samplers = std::move(other.m_samplers);
     }
     return *this;
 }
@@ -175,7 +218,7 @@ PipelineBuilder& PipelineBuilder::addInputLayout(
     uint32_t index,
     uint32_t slot,
     uint32_t components,
-    GpuType type,
+    Type type,
     bool normalized
 ) {
     InputLayout layout;
@@ -190,9 +233,9 @@ PipelineBuilder& PipelineBuilder::addInputLayout(
 }
 
 ///////////////////////////////////////////////////////////
-PipelineBuilder& PipelineBuilder::addShader(Shader* shader) {
+PipelineBuilder& PipelineBuilder::shader(Shader* shader) {
     Shader::Type type = shader->getType();
-    IShader* impl = static_cast<IShader*>(shader->m_shader);
+    IShader* impl = static_cast<IShader*>(shader->m_resource);
 
     // Set shader
     switch (type) {
@@ -214,6 +257,36 @@ PipelineBuilder& PipelineBuilder::addShader(Shader* shader) {
 }
 
 ///////////////////////////////////////////////////////////
+PipelineBuilder& PipelineBuilder::addVariable(
+    const std::string& name,
+    Shader::Type stages,
+    ShaderResourceType type
+) {
+    ShaderVariableDesc desc;
+    desc.name = name;
+    desc.stages = stages;
+    desc.type = type;
+    m_variables.push_back(desc);
+    return *this;
+}
+
+///////////////////////////////////////////////////////////
+PipelineBuilder& PipelineBuilder::addSampler(
+    const std::string& name,
+    Shader::Type stages,
+    TextureFilter filter,
+    TextureAddress address
+) {
+    ShaderSamplerDesc desc;
+    desc.name = name;
+    desc.stages = stages;
+    desc.filter = filter;
+    desc.address = address;
+    m_samplers.push_back(desc);
+    return *this;
+}
+
+///////////////////////////////////////////////////////////
 Pipeline PipelineBuilder::create() {
     // Set up input layout
     auto& inputLayout = m_desc->GraphicsPipeline.InputLayout;
@@ -223,33 +296,33 @@ Pipeline PipelineBuilder::create() {
     for (const auto& layout : m_inputLayouts) {
         VALUE_TYPE valueType;
 
-        // Map GpuType to Diligent Engine VALUE_TYPE
+        // Map type to Diligent Engine VALUE_TYPE
         switch (layout.type) {
-        case GpuType::Int8:
+        case Type::Int8:
             valueType = VT_INT8;
             break;
-        case GpuType::Int16:
+        case Type::Int16:
             valueType = VT_INT16;
             break;
-        case GpuType::Int32:
+        case Type::Int32:
             valueType = VT_INT32;
             break;
-        case GpuType::Uint8:
+        case Type::Uint8:
             valueType = VT_UINT8;
             break;
-        case GpuType::Uint16:
+        case Type::Uint16:
             valueType = VT_UINT16;
             break;
-        case GpuType::Uint32:
+        case Type::Uint32:
             valueType = VT_UINT32;
             break;
-        case GpuType::Float16:
+        case Type::Float16:
             valueType = VT_FLOAT16;
             break;
-        case GpuType::Float32:
+        case Type::Float32:
             valueType = VT_FLOAT32;
             break;
-        case GpuType::Float64:
+        case Type::Float64:
             valueType = VT_FLOAT64;
             break;
         default:
@@ -272,6 +345,44 @@ Pipeline PipelineBuilder::create() {
         inputLayout.NumElements = static_cast<uint32_t>(layoutElements.size());
     }
 
+    // Set variables
+    std::vector<Diligent::ShaderResourceVariableDesc> variables;
+    for (const auto& variable : m_variables) {
+        Diligent::ShaderResourceVariableDesc desc;
+        desc.Name = variable.name.c_str();
+        desc.ShaderStages = static_cast<SHADER_TYPE>(variable.stages);
+        desc.Type = static_cast<SHADER_RESOURCE_VARIABLE_TYPE>(variable.type);
+        variables.emplace_back(desc);
+    }
+
+    if (!variables.empty()) {
+        m_desc->PSODesc.ResourceLayout.Variables = variables.data();
+        m_desc->PSODesc.ResourceLayout.NumVariables =
+            static_cast<uint32_t>(variables.size());
+    }
+
+    // Set immutable samplers
+    std::vector<Diligent::ImmutableSamplerDesc> immutableSamplers;
+    for (const auto& sampler : m_samplers) {
+        Diligent::ImmutableSamplerDesc desc;
+        desc.SamplerOrTextureName = sampler.name.c_str();
+        desc.ShaderStages = static_cast<SHADER_TYPE>(sampler.stages);
+        desc.Desc.MinFilter = static_cast<FILTER_TYPE>(sampler.filter);
+        desc.Desc.MagFilter = static_cast<FILTER_TYPE>(sampler.filter);
+        desc.Desc.MipFilter = static_cast<FILTER_TYPE>(sampler.filter);
+        desc.Desc.AddressU = static_cast<TEXTURE_ADDRESS_MODE>(sampler.address);
+        desc.Desc.AddressV = static_cast<TEXTURE_ADDRESS_MODE>(sampler.address);
+        desc.Desc.AddressW = static_cast<TEXTURE_ADDRESS_MODE>(sampler.address);
+        immutableSamplers.emplace_back(desc);
+    }
+
+    if (!immutableSamplers.empty()) {
+        m_desc->PSODesc.ResourceLayout.ImmutableSamplers =
+            immutableSamplers.data();
+        m_desc->PSODesc.ResourceLayout.NumImmutableSamplers =
+            static_cast<uint32_t>(immutableSamplers.size());
+    }
+
     // Set render target write mask for all render targets
     auto& blendDesc = m_desc->GraphicsPipeline.BlendDesc;
     for (uint32_t i = 0; i < m_numTargets; ++i) {
@@ -289,7 +400,7 @@ Pipeline PipelineBuilder::create() {
     Handle handle = m_device->m_pipelines.push(pipelineState);
 
     // Create and return the Pipeline object
-    return Pipeline(m_device, handle);
+    return Pipeline(m_device, pipelineState.RawPtr(), handle);
 }
 
 } // namespace ply

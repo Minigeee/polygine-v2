@@ -121,11 +121,22 @@ bool RenderDevice::initialize(Window* window) {
 
     // Create default shader factory
     m_device->m_engineFactory->CreateDefaultShaderSourceStreamFactory(
-        "shaders;shaders\\inc;",
+        "shaders;shaders/inc;",
         &m_device->m_shaderFactory
     );
 
+    // Set up context
+    context.m_device = m_device;
+
     return true;
+}
+
+///////////////////////////////////////////////////////////
+void RenderDevice::setShaderPath(const std::string& path) {
+    m_device->m_engineFactory->CreateDefaultShaderSourceStreamFactory(
+        path.c_str(),
+        &m_device->m_shaderFactory
+    );
 }
 
 ///////////////////////////////////////////////////////////
@@ -139,7 +150,19 @@ PipelineBuilder RenderDevice::pipeline() {
 }
 
 ///////////////////////////////////////////////////////////
-void RenderDevice::bindBackBuffer() {
+BufferBuilder RenderDevice::buffer() {
+    return BufferBuilder(this);
+}
+
+///////////////////////////////////////////////////////////
+RenderContext::RenderContext() :
+    m_device(nullptr),
+    m_clearColor{0.0f, 0.0f, 0.0f, 1.0f},
+    m_clearDepth(1.0f),
+    m_clearStencil(0) {}
+
+///////////////////////////////////////////////////////////
+void RenderContext::bindBackBuffer() {
     auto* pRTV = m_device->m_swapChain->GetCurrentBackBufferRTV();
     auto* pDSV = m_device->m_swapChain->GetDepthBufferDSV();
     m_device->m_deviceContext->SetRenderTargets(
@@ -151,52 +174,122 @@ void RenderDevice::bindBackBuffer() {
 }
 
 ///////////////////////////////////////////////////////////
-void RenderDevice::clear(const Vector3f& color) {
-    auto* pRTV = m_device->m_swapChain->GetCurrentBackBufferRTV();
-    m_device->m_deviceContext->ClearRenderTarget(
-        pRTV,
-        &color,
+void RenderContext::clear(ClearFlag flags) {
+    if ((bool)(flags & ClearFlag::Color)) {
+        auto* pRTV = m_device->m_swapChain->GetCurrentBackBufferRTV();
+        m_device->m_deviceContext->ClearRenderTarget(
+            pRTV,
+            &m_clearColor,
+            RESOURCE_STATE_TRANSITION_MODE_TRANSITION
+        );
+    }
+
+    auto dsMask = ClearFlag::Depth | ClearFlag::Stencil;
+    if ((bool)(flags & dsMask)) {
+        auto dsFlags = (uint8_t)dsMask >> 1;
+
+        auto* pDSV = m_device->m_swapChain->GetDepthBufferDSV();
+        m_device->m_deviceContext->ClearDepthStencil(
+            pDSV,
+            static_cast<CLEAR_DEPTH_STENCIL_FLAGS>(dsFlags),
+            m_clearDepth,
+            m_clearStencil,
+            RESOURCE_STATE_TRANSITION_MODE_TRANSITION
+        );
+    }
+}
+
+///////////////////////////////////////////////////////////
+void RenderContext::setClearColor(const Vector4f& color) {
+    m_clearColor = color;
+}
+
+///////////////////////////////////////////////////////////
+void RenderContext::setClearDepth(float depth) {
+    m_clearDepth = depth;
+}
+
+///////////////////////////////////////////////////////////
+void RenderContext::setClearStencil(uint8_t stencil) {
+    m_clearStencil = stencil;
+}
+
+///////////////////////////////////////////////////////////
+void RenderContext::setVertexBuffers(
+    const BufferList& list,
+    uint32_t slot,
+    const uint64_t* offsets
+) {
+    m_device->m_deviceContext->SetVertexBuffers(
+        slot,
+        list.size(),
+        reinterpret_cast<IBuffer**>(list.data()),
+        offsets,
         RESOURCE_STATE_TRANSITION_MODE_TRANSITION
     );
 }
 
 ///////////////////////////////////////////////////////////
-void RenderDevice::clearDepth(float depth) {
-    auto* pDSV = m_device->m_swapChain->GetDepthBufferDSV();
-    m_device->m_deviceContext->ClearDepthStencil(
-        pDSV,
-        CLEAR_DEPTH_FLAG,
-        depth,
-        0,
+void RenderContext::setIndexBuffer(const Buffer& buffer, uint64_t offset) {
+    m_device->m_deviceContext->SetIndexBuffer(
+        static_cast<IBuffer*>(buffer.getResource()),
+        offset,
         RESOURCE_STATE_TRANSITION_MODE_TRANSITION
     );
 }
 
 ///////////////////////////////////////////////////////////
-void RenderDevice::clearStencil(uint8_t stencil) {
-    auto* pDSV = m_device->m_swapChain->GetDepthBufferDSV();
-    m_device->m_deviceContext->ClearDepthStencil(
-        pDSV,
-        CLEAR_STENCIL_FLAG,
-        0.0f,
-        stencil,
-        RESOURCE_STATE_TRANSITION_MODE_TRANSITION
-    );
-}
-
-///////////////////////////////////////////////////////////
-void RenderDevice::draw(Pipeline* pipeline, uint32_t numVertices) {
+void RenderContext::draw(
+    Pipeline& pipeline,
+    uint32_t numVertices,
+    ResourceBinding* binding
+) {
     auto context = m_device->m_deviceContext;
-    auto pso = static_cast<IPipelineState*>(pipeline->m_pipeline);
+    auto pso = static_cast<IPipelineState*>(pipeline.getResource());
     context->SetPipelineState(pso);
+
+    // Set binding
+    if (binding) {
+        context->CommitShaderResources(
+            static_cast<IShaderResourceBinding*>(binding->getResource()),
+            RESOURCE_STATE_TRANSITION_MODE_TRANSITION
+        );
+    }
 
     DrawAttribs drawAttrs;
     drawAttrs.NumVertices = numVertices;
+    drawAttrs.Flags = DRAW_FLAG_VERIFY_ALL;
     context->Draw(drawAttrs);
 }
 
 ///////////////////////////////////////////////////////////
-void RenderDevice::present(uint32_t sync) {
+void RenderContext::drawIndexed(
+    Pipeline& pipeline,
+    uint32_t numVertices,
+    ResourceBinding* binding,
+    Type dtype
+) {
+    auto context = m_device->m_deviceContext;
+    auto pso = static_cast<IPipelineState*>(pipeline.getResource());
+    context->SetPipelineState(pso);
+
+    // Set binding
+    if (binding) {
+        context->CommitShaderResources(
+            static_cast<IShaderResourceBinding*>(binding->getResource()),
+            RESOURCE_STATE_TRANSITION_MODE_TRANSITION
+        );
+    }
+
+    DrawIndexedAttribs drawAttrs;
+    drawAttrs.NumIndices = numVertices;
+    drawAttrs.IndexType = dtype == Type::Uint32 ? VT_UINT32 : VT_UINT16;
+    drawAttrs.Flags = DRAW_FLAG_VERIFY_ALL;
+    context->DrawIndexed(drawAttrs);
+}
+
+///////////////////////////////////////////////////////////
+void RenderContext::present(uint32_t sync) {
     m_device->m_swapChain->Present(sync);
 }
 

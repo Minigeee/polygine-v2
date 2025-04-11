@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ply\core\Handle.h>
+#include <ply\core\Macros.h>
 #include <ply\graphics\GpuResource.h>
 
 namespace ply {
@@ -10,6 +11,7 @@ namespace priv {
 }
 
 class PipelineBuilder;
+class ShaderBuilder;
 
 ///////////////////////////////////////////////////////////
 /// \brief Shader
@@ -17,23 +19,31 @@ class PipelineBuilder;
 ///////////////////////////////////////////////////////////
 class Shader : public GpuResource {
     friend PipelineBuilder;
+    friend ShaderBuilder;
 
 public:
-    enum Type { Vertex, Geometry, Pixel };
+    enum Type : uint32_t {
+        Unknown = 0x0000,       ///< Unknown shader type
+        Vertex = 0x0001,        ///< Vertex shader
+        Pixel = 0x0002,         ///< Pixel (fragment) shader
+        Geometry = 0x0004,      ///< Geometry shader
+        Hull = 0x0008,          ///< Hull (tessellation control) shader
+        Domain = 0x0010,        ///< Domain (tessellation evaluation) shader
+        Compute = 0x0020,       ///< Compute shader
+        Amplification = 0x0040, ///< Amplification (task) shader
+        Mesh = 0x0080,          ///< Mesh shader
+    };
+
     enum Language { Glsl, Hlsl };
 
 public:
-    ///////////////////////////////////////////////////////////
-    /// \brief Constructor
-    ///
-    ///////////////////////////////////////////////////////////
-    Shader();
+    GPU_RESOURCE(Shader);
 
     ///////////////////////////////////////////////////////////
     /// \brief Constructor
     ///
     ///////////////////////////////////////////////////////////
-    Shader(priv::DeviceImpl* device, Handle shader, Shader::Type type);
+    Shader(RenderDevice* device);
 
     ///////////////////////////////////////////////////////////
     /// \brief Destructor
@@ -41,8 +51,30 @@ public:
     ///////////////////////////////////////////////////////////
     ~Shader();
 
-    GPU_RESOURCE(Shader, m_shader);
-    
+    ///////////////////////////////////////////////////////////
+    /// \brief Load shader from source code
+    ///
+    /// \param source Source code
+    /// \param type Shader type
+    /// \return True if the shader was loaded successfully, false otherwise
+    ///
+    /// \note This function should be called from the main thread.
+    ///////////////////////////////////////////////////////////
+    bool loadFromSource(const std::string& source, Shader::Type type);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Load shader from a file
+    ///
+    /// The base path is set by the render device RenderDevice::setShaderPath.
+    ///
+    /// \param fname File name of the shader
+    /// \param type Shader type
+    /// \return True if the shader was loaded successfully, false otherwise
+    ///
+    /// \note This function should be called from the main thread.
+    ///////////////////////////////////////////////////////////
+    bool loadFromFile(const std::string& fname, Shader::Type type);
+
     ///////////////////////////////////////////////////////////
     /// \brief Get shader type
     ///
@@ -52,28 +84,43 @@ public:
     Type getType() const;
 
 private:
-    Handle m_handle;
-    void* m_shader;
+    ///////////////////////////////////////////////////////////
+    /// \brief Constructor
+    ///
+    ///////////////////////////////////////////////////////////
+    Shader(
+        priv::DeviceImpl* device,
+        void* resource,
+        Handle handle,
+        Shader::Type type
+    );
+
+private:
     Shader::Type m_type;
 };
+
+BIT_OPERATOR(Shader::Type);
 
 ///////////////////////////////////////////////////////////
 /// \brief A shader builder
 ///
 ///////////////////////////////////////////////////////////
-class ShaderBuilder : public GpuResource {
+class ShaderBuilder : public GpuResourceBuilder {
 public:
     ShaderBuilder(RenderDevice* device);
+    ShaderBuilder(priv::DeviceImpl* device);
     ~ShaderBuilder();
 
-    // Ctor and assignment
-    GPU_RESOURCE(ShaderBuilder, m_desc);
+    ShaderBuilder(const ShaderBuilder&) = delete;
+    ShaderBuilder& operator=(const ShaderBuilder&) = delete;
+    ShaderBuilder(ShaderBuilder&&) noexcept;
+    ShaderBuilder& operator=(ShaderBuilder&&) noexcept;
 
     ShaderBuilder& type(Shader::Type type);
 
-    ShaderBuilder& fromFile(const char* fname);
+    ShaderBuilder& file(const char* fname);
 
-    ShaderBuilder& fromSource(const char* source);
+    ShaderBuilder& source(const char* source);
 
     ShaderBuilder& entryPoint(const char* entryPoint);
 
@@ -85,6 +132,7 @@ public:
     ShaderBuilder& addMacro(const char* name, float definition);
     ShaderBuilder& addMacro(const char* name, double definition);
     ShaderBuilder& addMacro(const char* name, const char* definition);
+    ShaderBuilder& addMacro(const char* name, const std::string& definition);
 
     Shader load();
 

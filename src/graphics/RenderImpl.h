@@ -32,6 +32,8 @@ namespace priv {
         HandleArray<RefCntAutoPtr<IPipelineState>>
             m_pipelines;                               //!< Pipeline states
         HandleArray<RefCntAutoPtr<IShader>> m_shaders; //!< Shaders
+        HandleArray<RefCntAutoPtr<IBuffer>> m_buffers; //!< Buffers
+        HandleArray<RefCntAutoPtr<IShaderResourceBinding>> m_resourceBindings;
     };
 
     ///////////////////////////////////////////////////////////
@@ -45,7 +47,15 @@ namespace priv {
     ///
     ///////////////////////////////////////////////////////////
     struct ShaderDesc : public ShaderCreateInfo {
-        ShaderMacroHelper MacroHelper;
+        std::vector<std::pair<std::string, std::string>> MacroList;
+    };
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Buffer object create descriptor
+    ///
+    ///////////////////////////////////////////////////////////
+    struct BufferDesc : public Diligent::BufferDesc {
+        BufferData Data;
     };
 
 } // namespace priv
