@@ -155,6 +155,16 @@ BufferBuilder RenderDevice::buffer() {
 }
 
 ///////////////////////////////////////////////////////////
+TextureBuilder RenderDevice::texture() {
+    return TextureBuilder(this);
+}
+
+///////////////////////////////////////////////////////////
+Texture RenderDevice::texture(const Image& image) {
+    return TextureBuilder(this).from(image).create();
+}
+
+///////////////////////////////////////////////////////////
 RenderContext::RenderContext() :
     m_device(nullptr),
     m_clearColor{0.0f, 0.0f, 0.0f, 1.0f},

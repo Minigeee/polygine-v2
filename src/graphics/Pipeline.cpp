@@ -29,6 +29,25 @@ void ResourceBinding::set(
 }
 
 ///////////////////////////////////////////////////////////
+void ResourceBinding::set(
+    Shader::Type stages,
+    const char* name,
+    const Texture& resource
+) {
+    CHECK_F(m_device && m_resource, "resource binding not initialized");
+
+    // Get view
+    ITextureView* view =
+        static_cast<Diligent::ITexture*>(resource.getResource())
+            ->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+
+    // Set
+    RESOURCE_BINDING(m_resource)
+        ->GetVariableByName(static_cast<Diligent::SHADER_TYPE>(stages), name)
+        ->Set(view);
+}
+
+///////////////////////////////////////////////////////////
 Pipeline::~Pipeline() {
     if (m_device && m_resource) {
         m_device->m_pipelines.remove(m_handle);
@@ -48,6 +67,28 @@ void Pipeline::setStaticVariable(
             name
         )
         ->Set(static_cast<Diligent::IBuffer*>(resource.getResource()));
+}
+
+///////////////////////////////////////////////////////////
+void Pipeline::setStaticVariable(
+    Shader::Type stages,
+    const char* name,
+    const Texture& resource
+) {
+    CHECK_F(m_device && m_resource, "pipeline not initialized");
+
+    // Get view
+    ITextureView* view =
+        static_cast<Diligent::ITexture*>(resource.getResource())
+            ->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+
+    // Set
+    PIPELINE(m_resource)
+        ->GetStaticVariableByName(
+            static_cast<Diligent::SHADER_TYPE>(stages),
+            name
+        )
+        ->Set(view);
 }
 
 ///////////////////////////////////////////////////////////
@@ -122,7 +163,7 @@ PipelineBuilder& PipelineBuilder::operator=(PipelineBuilder&& other) noexcept {
 PipelineBuilder& PipelineBuilder::addTargetFormat(TextureFormat format) {
     auto& graphics = m_desc->GraphicsPipeline;
     if (m_numTargets < MAX_RENDER_TARGETS) { // Maximum of 8 render targets
-        graphics.RTVFormats[m_numTargets] = static_cast<TEXTURE_FORMAT>(format);
+        graphics.RTVFormats[m_numTargets] = priv::convertTextureFormat(format);
         m_numTargets++;
         graphics.NumRenderTargets = m_numTargets;
     }
@@ -132,7 +173,7 @@ PipelineBuilder& PipelineBuilder::addTargetFormat(TextureFormat format) {
 ///////////////////////////////////////////////////////////
 PipelineBuilder& PipelineBuilder::depthFormat(TextureFormat format) {
     auto& graphics = m_desc->GraphicsPipeline;
-    graphics.DSVFormat = static_cast<TEXTURE_FORMAT>(format);
+    graphics.DSVFormat = priv::convertTextureFormat(format);
     return *this;
 }
 
@@ -277,12 +318,14 @@ PipelineBuilder& PipelineBuilder::addSampler(
     TextureFilter filter,
     TextureAddress address
 ) {
+    // Add sampler
     ShaderSamplerDesc desc;
     desc.name = name;
     desc.stages = stages;
     desc.filter = filter;
     desc.address = address;
     m_samplers.push_back(desc);
+
     return *this;
 }
 

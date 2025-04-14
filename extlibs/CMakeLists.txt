@@ -60,3 +60,9 @@ target_include_directories(polygine PUBLIC
 target_link_libraries(polygine PUBLIC
     Diligent-GraphicsEngineOpenGL-shared
     Diligent-GraphicsEngineVk-shared)
+
+# ---
+
+# stb
+CPMAddPackage("gh:nothings/stb#master")
+target_include_directories(polygine PRIVATE ${stb_SOURCE_DIR})

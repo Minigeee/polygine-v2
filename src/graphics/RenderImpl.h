@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ply/core/HandleArray.h>
+#include <ply/graphics/Types.h>
 
 #include <Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h>
 
@@ -33,6 +34,7 @@ namespace priv {
             m_pipelines;                               //!< Pipeline states
         HandleArray<RefCntAutoPtr<IShader>> m_shaders; //!< Shaders
         HandleArray<RefCntAutoPtr<IBuffer>> m_buffers; //!< Buffers
+        HandleArray<RefCntAutoPtr<ITexture>> m_textures; //!< Textures
         HandleArray<RefCntAutoPtr<IShaderResourceBinding>> m_resourceBindings;
     };
 
@@ -57,6 +59,20 @@ namespace priv {
     struct BufferDesc : public Diligent::BufferDesc {
         BufferData Data;
     };
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Texture object create descriptor
+    ///
+    ///////////////////////////////////////////////////////////
+    struct TextureDesc : public Diligent::TextureDesc {
+        std::vector<TextureSubResData> Data;
+    };
+    
+    ///////////////////////////////////////////////////////////
+    /// \brief Convert polygine texture format to Diligent texture format
+    ///
+    ///////////////////////////////////////////////////////////
+    TEXTURE_FORMAT convertTextureFormat(TextureFormat format);
 
 } // namespace priv
 

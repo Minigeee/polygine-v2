@@ -63,6 +63,7 @@ ShaderBuilder::ShaderBuilder(priv::DeviceImpl* device) :
     // Defaults
     m_desc->EntryPoint = "main";
     m_desc->SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
+    m_desc->Desc.UseCombinedTextureSamplers = true;
 }
 
 ///////////////////////////////////////////////////////////

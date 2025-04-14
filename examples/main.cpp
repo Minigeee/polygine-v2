@@ -130,18 +130,38 @@ void schedulerTest() {
 ply::Buffer createVertexBuffer(ply::RenderDevice& device) {
     struct Vertex {
         ply::Vector3f pos;
-        ply::Vector4f color;
+        ply::Vector2f uv;
     };
-    constexpr Vertex CubeVerts[8] = {
-        {ply::Vector3f{-1, -1, -1}, ply::Vector4f{1, 0, 0, 1}},
-        {ply::Vector3f{-1, +1, -1}, ply::Vector4f{0, 1, 0, 1}},
-        {ply::Vector3f{+1, +1, -1}, ply::Vector4f{0, 0, 1, 1}},
-        {ply::Vector3f{+1, -1, -1}, ply::Vector4f{1, 1, 1, 1}},
+    constexpr Vertex CubeVerts[] = {
+        {ply::Vector3f{-1, -1, -1}, ply::Vector2f{0, 1}},
+        {ply::Vector3f{-1, +1, -1}, ply::Vector2f{0, 0}},
+        {ply::Vector3f{+1, +1, -1}, ply::Vector2f{1, 0}},
+        {ply::Vector3f{+1, -1, -1}, ply::Vector2f{1, 1}},
 
-        {ply::Vector3f{-1, -1, +1}, ply::Vector4f{1, 1, 0, 1}},
-        {ply::Vector3f{-1, +1, +1}, ply::Vector4f{0, 1, 1, 1}},
-        {ply::Vector3f{+1, +1, +1}, ply::Vector4f{1, 0, 1, 1}},
-        {ply::Vector3f{+1, -1, +1}, ply::Vector4f{0.2f, 0.2f, 0.2f, 1.f}},
+        {ply::Vector3f{-1, -1, -1}, ply::Vector2f{0, 1}},
+        {ply::Vector3f{-1, -1, +1}, ply::Vector2f{0, 0}},
+        {ply::Vector3f{+1, -1, +1}, ply::Vector2f{1, 0}},
+        {ply::Vector3f{+1, -1, -1}, ply::Vector2f{1, 1}},
+
+        {ply::Vector3f{+1, -1, -1}, ply::Vector2f{0, 1}},
+        {ply::Vector3f{+1, -1, +1}, ply::Vector2f{1, 1}},
+        {ply::Vector3f{+1, +1, +1}, ply::Vector2f{1, 0}},
+        {ply::Vector3f{+1, +1, -1}, ply::Vector2f{0, 0}},
+
+        {ply::Vector3f{+1, +1, -1}, ply::Vector2f{0, 1}},
+        {ply::Vector3f{+1, +1, +1}, ply::Vector2f{0, 0}},
+        {ply::Vector3f{-1, +1, +1}, ply::Vector2f{1, 0}},
+        {ply::Vector3f{-1, +1, -1}, ply::Vector2f{1, 1}},
+
+        {ply::Vector3f{-1, +1, -1}, ply::Vector2f{1, 0}},
+        {ply::Vector3f{-1, +1, +1}, ply::Vector2f{0, 0}},
+        {ply::Vector3f{-1, -1, +1}, ply::Vector2f{0, 1}},
+        {ply::Vector3f{-1, -1, -1}, ply::Vector2f{1, 1}},
+
+        {ply::Vector3f{-1, -1, +1}, ply::Vector2f{1, 1}},
+        {ply::Vector3f{+1, -1, +1}, ply::Vector2f{0, 1}},
+        {ply::Vector3f{+1, +1, +1}, ply::Vector2f{0, 0}},
+        {ply::Vector3f{-1, +1, +1}, ply::Vector2f{1, 0}},
     };
 
     return device.buffer()
@@ -154,12 +174,12 @@ ply::Buffer createVertexBuffer(ply::RenderDevice& device) {
 ply::Buffer createIndexBuffer(ply::RenderDevice& device) {
     // clang-format off
     constexpr uint32_t Indices[] = {
-        2,0,1, 2,3,0,
-        4,6,5, 4,7,6,
-        0,7,4, 0,3,7,
-        1,0,4, 1,4,5,
-        1,5,2, 5,6,2,
-        3,6,7, 3,2,6
+        2,0,1,    2,3,0,
+        4,6,5,    4,7,6,
+        8,10,9,   8,11,10,
+        12,14,13, 12,15,14,
+        16,18,17, 16,19,18,
+        20,21,22, 20,22,23
     };
     // clang-format on
 
@@ -171,11 +191,20 @@ ply::Buffer createIndexBuffer(ply::RenderDevice& device) {
 }
 
 ply::Matrix4f createTransformMatrix(float time) {
-    ply::Matrix4f T = glm::rotate(glm::mat4(1.0f), glm::radians(time * 45.0f), ply::Vector3f{0, 1, 0});
+    ply::Matrix4f T = glm::rotate(
+        glm::mat4(1.0f),
+        glm::radians(time * 45.0f),
+        ply::Vector3f{0, 1, 0}
+    );
 
-    ply::Matrix4f V = glm::lookAt(ply::Vector3f{5, 0, 5}, ply::Vector3f{0, 0, 0}, ply::Vector3f{0, 1, 0});
+    ply::Matrix4f V = glm::lookAt(
+        ply::Vector3f{5, 0, 5},
+        ply::Vector3f{0, 0, 0},
+        ply::Vector3f{0, 1, 0}
+    );
 
-    ply::Matrix4f P = ply::toPerspectiveMatrix(45.0f, 8.0f / 6.0f, 0.1f, 100.0f);
+    ply::Matrix4f P =
+        ply::toPerspectiveMatrix(45.0f, 8.0f / 6.0f, 0.1f, 100.0f);
 
     return P * V * T;
 }
@@ -214,8 +243,14 @@ int main(int argc, char* argv[]) {
             .shader(&vs)
             .shader(&ps)
             .addInputLayout(0, 0, 3, ply::Type::Float32) // Position
-            .addInputLayout(1, 0, 4, ply::Type::Float32) // Color
-            .cull(ply::CullMode::Front) // The vertex order is wrong in index buffer
+            .addInputLayout(1, 0, 2, ply::Type::Float32) // UV
+            .addVariable(
+                "g_Texture",
+                ply::Shader::Pixel,
+                ply::ShaderResourceType::Mutable
+            ) // Texture
+            .addSampler("g_Texture", ply::Shader::Pixel)
+            .cull(ply::CullMode::None)
             .create();
 
     // Create constants buffer
@@ -233,6 +268,11 @@ int main(int argc, char* argv[]) {
 
     auto vertexBuffer = createVertexBuffer(device);
     auto indexBuffer = createIndexBuffer(device);
+
+    // Load image texture
+    ply::Image image("examples/assets/DGLogo.png");
+    auto texture = device.texture(image);
+    binding.set(ply::Shader::Pixel, "g_Texture", texture);
 
     window.addListener<ply::Event::MouseButton>(
         [](const ply::Event::MouseButton& event) {
@@ -286,7 +326,10 @@ int main(int argc, char* argv[]) {
         // Update transform matrix
         float time = clock.getElapsedTime().seconds();
         auto transform = createTransformMatrix(time);
-        ply::Matrix4f* mapped = (ply::Matrix4f*)buffer.map(ply::MapMode::Write, ply::MapFlag::Discard);
+        ply::Matrix4f* mapped = (ply::Matrix4f*)buffer.map(
+            ply::MapMode::Write,
+            ply::MapFlag::Discard
+        );
         mapped[0] = glm::transpose(transform);
         buffer.unmap();
 

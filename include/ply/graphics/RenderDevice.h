@@ -3,8 +3,10 @@
 #include <ply/core/Macros.h>
 #include <ply/graphics/Buffer.h>
 #include <ply/graphics/Pipeline.h>
+#include <ply/graphics/Texture.h>
 #include <ply/graphics/Shader.h>
 #include <ply/math/Types.h>
+#include <ply/graphics/Image.h>
 
 namespace ply {
 
@@ -158,6 +160,7 @@ class RenderDevice {
     friend GpuResourceBuilder;
     friend ShaderBuilder;
     friend BufferBuilder;
+    friend TextureBuilder;
 
 public:
     /////////////////////////////////////////////////////////////
@@ -220,6 +223,23 @@ public:
     ///
     /////////////////////////////////////////////////////////////
     BufferBuilder buffer();
+
+    /////////////////////////////////////////////////////////////
+    /// \brief Create a texture
+    ///
+    /// \return A texture builder object
+    ///
+    /////////////////////////////////////////////////////////////
+    TextureBuilder texture();
+
+    /////////////////////////////////////////////////////////////
+    /// \brief Create a texture from an image
+    ///
+    /// \param image The image to create the texture from
+    /// \return A texture
+    ///
+    /////////////////////////////////////////////////////////////
+    Texture texture(const Image& image);
 
     RenderContext context; //!< Render context
 

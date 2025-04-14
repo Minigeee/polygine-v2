@@ -15,11 +15,6 @@ enum class TextureFormat : uint16_t {
     /// Unknown format
     Unknown = 0,
 
-    /// Four-component 128-bit typeless format with 32-bit channels. \n
-    /// D3D counterpart: DXGI_FORMAT_R32G32B32A32_TYPELESS. OpenGL does not have
-    /// direct counterpart, GL_RGBA32F is used.
-    Rgba32,
-
     /// Four-component 128-bit floating-point format with 32-bit channels. \n
     /// D3D counterpart: DXGI_FORMAT_R32G32B32A32_FLOAT. OpenGL counterpart:
     /// GL_RGBA32F.
@@ -28,18 +23,12 @@ enum class TextureFormat : uint16_t {
     /// Four-component 128-bit unsigned-integer format with 32-bit channels. \n
     /// D3D counterpart: DXGI_FORMAT_R32G32B32A32_UINT. OpenGL counterpart:
     /// GL_RGBA32UI.
-    Rgba32u,
+    Rgba32ui,
 
     /// Four-component 128-bit signed-integer format with 32-bit channels. \n
     /// D3D counterpart: DXGI_FORMAT_R32G32B32A32_SINT. OpenGL counterpart:
     /// GL_RGBA32I.
     Rgba32i,
-
-    /// Three-component 96-bit typeless format with 32-bit channels. \n
-    /// D3D counterpart: DXGI_FORMAT_R32G32B32_TYPELESS. OpenGL does not have
-    /// direct counterpart, GL_RGB32F is used.
-    /// \warning This format has weak hardware support and is not recommended
-    Rgb32,
 
     /// Three-component 96-bit floating-point format with 32-bit channels. \n
     /// D3D counterpart: DXGI_FORMAT_R32G32B32_FLOAT. OpenGL counterpart:
@@ -51,18 +40,13 @@ enum class TextureFormat : uint16_t {
     /// D3D counterpart: DXGI_FORMAT_R32G32B32_UINT. OpenGL counterpart:
     /// GL_RGB32UI.
     /// \warning This format has weak hardware support and is not recommended
-    Rgb32u,
+    Rgb32ui,
 
     /// Three-component 96-bit signed-integer format with 32-bit channels. \n
     /// D3D counterpart: DXGI_FORMAT_R32G32B32_SINT. OpenGL counterpart:
     /// GL_RGB32I.
     /// \warning This format has weak hardware support and is not recommended
     Rgb32i,
-
-    /// Four-component 64-bit typeless format with 16-bit channels. \n
-    /// D3D counterpart: DXGI_FORMAT_R16G16B16A16_TYPELESS. OpenGL does not have
-    /// direct counterpart, GL_RGBA16F is used.
-    Rgba16,
 
     /// Four-component 64-bit half-precision floating-point format with 16-bit
     /// channels. \n
@@ -77,12 +61,12 @@ enum class TextureFormat : uint16_t {
     /// [GL_EXT_texture_norm16]:
     /// https://www.khronos.org/registry/gles/extensions/EXT/EXT_texture_norm16.txt
     /// OpenGLES: [GL_EXT_texture_norm16][] extension is required
-    Rgba16unorm,
+    Rgba16,
 
     /// Four-component 64-bit unsigned-integer format with 16-bit channels. \n
     /// D3D counterpart: DXGI_FORMAT_R16G16B16A16_UINT. OpenGL counterpart:
     /// GL_RGBA16UI.
-    Rgba16u,
+    Rgba16ui,
 
     /// [GL_EXT_texture_norm16]:
     /// https://www.khronos.org/registry/gles/extensions/EXT/EXT_texture_norm16.txt
@@ -93,17 +77,12 @@ enum class TextureFormat : uint16_t {
     /// [GL_EXT_texture_norm16]:
     /// https://www.khronos.org/registry/gles/extensions/EXT/EXT_texture_norm16.txt
     /// OpenGLES: [GL_EXT_texture_norm16][] extension is required
-    Rgba16inorm,
+    Rgba16snorm,
 
     /// Four-component 64-bit signed-integer format with 16-bit channels. \n
     /// D3D counterpart: DXGI_FORMAT_R16G16B16A16_SINT. OpenGL counterpart:
     /// GL_RGBA16I.
     Rgba16i,
-
-    /// Two-component 64-bit typeless format with 32-bit channels. \n
-    /// D3D counterpart: DXGI_FORMAT_R32G32_TYPELESS. OpenGL does not have
-    /// direct counterpart, GL_RG32F is used.
-    Rg32,
 
     /// Two-component 64-bit floating-point format with 32-bit channels. \n
     /// D3D counterpart: DXGI_FORMAT_R32G32_FLOAT. OpenGL counterpart: GL_RG32F.
@@ -111,97 +90,63 @@ enum class TextureFormat : uint16_t {
 
     /// Two-component 64-bit unsigned-integer format with 32-bit channels. \n
     /// D3D counterpart: DXGI_FORMAT_R32G32_UINT. OpenGL counterpart: GL_RG32UI.
-    Rg32u,
+    Rg32ui,
 
     /// Two-component 64-bit signed-integer format with 32-bit channels. \n
     /// D3D counterpart: DXGI_FORMAT_R32G32_SINT. OpenGL counterpart: GL_RG32I.
     Rg32i,
 
-    /// Two-component 64-bit typeless format with 32-bits for R channel and 8
-    /// bits for G channel. \n
-    /// D3D counterpart: DXGI_FORMAT_R32G8X24_TYPELESS. OpenGL does not have
-    /// direct counterpart, GL_DEPTH32F_STENCIL8 is used.
-    R32_G8_X24,
-
     /// Two-component 64-bit format with 32-bit floating-point depth channel and
     /// 8-bit stencil channel. \n
     /// D3D counterpart: DXGI_FORMAT_D32_FLOAT_S8X24_UINT. OpenGL counterpart:
     /// GL_DEPTH32F_STENCIL8.
-    D32f_S8_X24u,
-
-    /// Two-component 64-bit format with 32-bit floating-point R channel and
-    /// 8+24-bits of typeless data. \n
-    /// D3D counterpart: DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS. OpenGL does not
-    /// have direct counterpart, GL_DEPTH32F_STENCIL8 is used.
-    R32f_X8_X24,
-
-    /// Two-component 64-bit format with 32-bit typeless data and 8-bit G
-    /// channel. \n
-    /// D3D counterpart: DXGI_FORMAT_X32_TYPELESS_G8X24_UINT
-    /// \warning This format is currently not implemented in OpenGL version
-    X32_G8_X24u,
-
-    /// Four-component 32-bit typeless format with 10 bits for RGB and 2 bits
-    /// for alpha channel. \n
-    /// D3D counterpart: DXGI_FORMAT_R10G10B10A2_TYPELESS. OpenGL does not have
-    /// direct counterpart, GL_RGB10_A2 is used.
-    Rgb10_A2,
+    D32f_S8,
 
     /// Four-component 32-bit unsigned-normalized-integer format with 10 bits
     /// for each color and 2 bits for alpha channel. \n
     /// D3D counterpart: DXGI_FORMAT_R10G10B10A2_UNORM. OpenGL counterpart:
     /// GL_RGB10_A2.
-    Rgb10_A2unorm,
+    Rgb10_A2,
 
     /// Four-component 32-bit unsigned-integer format with 10 bits for each
     /// color and 2 bits for alpha channel. \n
     /// D3D counterpart: DXGI_FORMAT_R10G10B10A2_UINT. OpenGL counterpart:
     /// GL_RGB10_A2UI.
-    Rgb10_A2u,
+    Rgb10_A2ui,
 
     /// Three-component 32-bit format encoding three partial precision channels
     /// using 11 bits for red and green and 10 bits for blue channel. \n
     /// D3D counterpart: DXGI_FORMAT_R11G11B10_FLOAT. OpenGL counterpart:
     /// GL_R11F_G11F_B10F.
-    R11_G11_B10f,
-
-    /// Four-component 32-bit typeless format with 8-bit channels. \n
-    /// D3D counterpart: DXGI_FORMAT_R8G8B8A8_TYPELESS. OpenGL does not have
-    /// direct counterpart, GL_RGBA8 is used.
-    Rgba8,
+    R11f_G11f_B10f,
 
     /// Four-component 32-bit unsigned-normalized-integer format with 8-bit
     /// channels. \n
     /// D3D counterpart: DXGI_FORMAT_R8G8B8A8_UNORM. OpenGL counterpart:
     /// GL_RGBA8.
-    Rgba8unorm,
+    Rgba8,
 
     /// Four-component 32-bit unsigned-normalized-integer sRGB format with 8-bit
     /// channels. \n
     /// D3D counterpart: DXGI_FORMAT_R8G8B8A8_UNORM_SRGB. OpenGL counterpart:
     /// GL_SRGB8_ALPHA8.
-    Rgba8unorm_srgb,
+    Srgb8_A8,
 
     /// Four-component 32-bit unsigned-integer format with 8-bit channels. \n
     /// D3D counterpart: DXGI_FORMAT_R8G8B8A8_UINT. OpenGL counterpart:
     /// GL_RGBA8UI.
-    Rgba8u,
+    Rgba8ui,
 
     /// Four-component 32-bit signed-normalized-integer format with 8-bit
     /// channels. \n
     /// D3D counterpart: DXGI_FORMAT_R8G8B8A8_SNORM. OpenGL counterpart:
     /// GL_RGBA8_SNORM.
-    Rgba8inorm,
+    Rgba8snorm,
 
     /// Four-component 32-bit signed-integer format with 8-bit channels. \n
     /// D3D counterpart: DXGI_FORMAT_R8G8B8A8_SINT. OpenGL counterpart:
     /// GL_RGBA8I.
     Rgba8i,
-
-    /// Two-component 32-bit typeless format with 16-bit channels. \n
-    /// D3D counterpart: DXGI_FORMAT_R16G16_TYPELESS. OpenGL does not have
-    /// direct counterpart, GL_RG16F is used.
-    Rg16,
 
     /// Two-component 32-bit half-precision floating-point format with 16-bit
     /// channels. \n
@@ -215,11 +160,11 @@ enum class TextureFormat : uint16_t {
     /// [GL_EXT_texture_norm16]:
     /// https://www.khronos.org/registry/gles/extensions/EXT/EXT_texture_norm16.txt
     /// OpenGLES: [GL_EXT_texture_norm16][] extension is required
-    Rg16unorm,
+    Rg16,
 
     /// Two-component 32-bit unsigned-integer format with 16-bit channels. \n
     /// D3D counterpart: DXGI_FORMAT_R16G16_UINT. OpenGL counterpart: GL_RG16UI.
-    Rg16u,
+    Rg16ui,
 
     /// Two-component 32-bit signed-normalized-integer format with 16-bit
     /// channels. \n
@@ -228,16 +173,11 @@ enum class TextureFormat : uint16_t {
     /// [GL_EXT_texture_norm16]:
     /// https://www.khronos.org/registry/gles/extensions/EXT/EXT_texture_norm16.txt
     /// OpenGLES: [GL_EXT_texture_norm16][] extension is required
-    Rg16inorm,
+    Rg16snorm,
 
     /// Two-component 32-bit signed-integer format with 16-bit channels. \n
     /// D3D counterpart: DXGI_FORMAT_R16G16_SINT. OpenGL counterpart: GL_RG16I.
     Rg16i,
-
-    /// Single-component 32-bit typeless format. \n
-    /// D3D counterpart: DXGI_FORMAT_R32_TYPELESS. OpenGL does not have direct
-    /// counterpart, GL_R32F is used.
-    R32,
 
     /// Single-component 32-bit floating-point depth format. \n
     /// D3D counterpart: DXGI_FORMAT_D32_FLOAT. OpenGL counterpart:
@@ -250,64 +190,36 @@ enum class TextureFormat : uint16_t {
 
     /// Single-component 32-bit unsigned-integer format. \n
     /// D3D counterpart: DXGI_FORMAT_R32_UINT. OpenGL counterpart: GL_R32UI.
-    R32u,
+    R32ui,
 
     /// Single-component 32-bit signed-integer format. \n
     /// D3D counterpart: DXGI_FORMAT_R32_SINT. OpenGL counterpart: GL_R32I.
     R32i,
 
-    /// Two-component 32-bit typeless format with 24 bits for R and 8 bits for G
-    /// channel. \n
-    /// D3D counterpart: DXGI_FORMAT_R24G8_TYPELESS. OpenGL does not have direct
-    /// counterpart, GL_DEPTH24_STENCIL8 is used.
-    R24_G8,
-
     /// Two-component 32-bit format with 24 bits for unsigned-normalized-integer
     /// depth and 8 bits for stencil. \n
     /// D3D counterpart: DXGI_FORMAT_D24_UNORM_S8_UINT. OpenGL counterpart:
     /// GL_DEPTH24_STENCIL8.
-    D24unorm_S8u,
-
-    /// Two-component 32-bit format with 24 bits for unsigned-normalized-integer
-    /// data and 8 bits of unreferenced data. \n
-    /// D3D counterpart: DXGI_FORMAT_R24_UNORM_X8_TYPELESS. OpenGL does not have
-    /// direct counterpart, GL_DEPTH24_STENCIL8 is used.
-    R24unorm_X8,
-
-    /// Two-component 32-bit format with 24 bits of unreferenced data and 8 bits
-    /// of unsigned-integer data. \n
-    /// D3D counterpart: DXGI_FORMAT_X24_TYPELESS_G8_UINT
-    /// \warning This format is currently not implemented in OpenGL version
-    X24_G8u,
-
-    /// Two-component 16-bit typeless format with 8-bit channels. \n
-    /// D3D counterpart: DXGI_FORMAT_R8G8_TYPELESS. OpenGL does not have direct
-    /// counterpart, GL_RG8 is used.
-    Rg8,
+    D24_S8,
 
     /// Two-component 16-bit unsigned-normalized-integer format with 8-bit
     /// channels. \n
     /// D3D counterpart: DXGI_FORMAT_R8G8_UNORM. OpenGL counterpart: GL_RG8.
-    Rg8unorm,
+    Rg8,
 
     /// Two-component 16-bit unsigned-integer format with 8-bit channels. \n
     /// D3D counterpart: DXGI_FORMAT_R8G8_UINT. OpenGL counterpart: GL_RG8UI.
-    Rg8u,
+    Rg8ui,
 
     /// Two-component 16-bit signed-normalized-integer format with 8-bit
     /// channels. \n
     /// D3D counterpart: DXGI_FORMAT_R8G8_SNORM. OpenGL counterpart:
     /// GL_RG8_SNORM.
-    Rg8inorm,
+    Rg8snorm,
 
     /// Two-component 16-bit signed-integer format with 8-bit channels. \n
     /// D3D counterpart: DXGI_FORMAT_R8G8_SINT. OpenGL counterpart: GL_RG8I.
     Rg8i,
-
-    /// Single-component 16-bit typeless format. \n
-    /// D3D counterpart: DXGI_FORMAT_R16_TYPELESS. OpenGL does not have direct
-    /// counterpart, GL_R16F is used.
-    R16,
 
     /// Single-component 16-bit half-precision floating-point format. \n
     /// D3D counterpart: DXGI_FORMAT_R16_FLOAT. OpenGL counterpart: GL_R16F.
@@ -316,18 +228,18 @@ enum class TextureFormat : uint16_t {
     /// Single-component 16-bit unsigned-normalized-integer depth format. \n
     /// D3D counterpart: DXGI_FORMAT_D16_UNORM. OpenGL counterpart:
     /// GL_DEPTH_COMPONENT16.
-    D16unorm,
+    D16,
 
     /// Single-component 16-bit unsigned-normalized-integer format. \n
     /// D3D counterpart: DXGI_FORMAT_R16_UNORM. OpenGL counterpart: GL_R16.
     /// [GL_EXT_texture_norm16]:
     /// https://www.khronos.org/registry/gles/extensions/EXT/EXT_texture_norm16.txt
     /// OpenGLES: [GL_EXT_texture_norm16][] extension is required
-    R16unorm,
+    R16,
 
     /// Single-component 16-bit unsigned-integer format. \n
     /// D3D counterpart: DXGI_FORMAT_R16_UINT. OpenGL counterpart: GL_R16UI.
-    R16u,
+    R16ui,
 
     /// Single-component 16-bit signed-normalized-integer format. \n
     /// D3D counterpart: DXGI_FORMAT_R16_SNORM. OpenGL counterpart:
@@ -335,28 +247,23 @@ enum class TextureFormat : uint16_t {
     /// [GL_EXT_texture_norm16]:
     /// https://www.khronos.org/registry/gles/extensions/EXT/EXT_texture_norm16.txt
     /// OpenGLES: [GL_EXT_texture_norm16][] extension is required
-    R16inorm,
+    R16snorm,
 
     /// Single-component 16-bit signed-integer format. \n
     /// D3D counterpart: DXGI_FORMAT_R16_SINT. OpenGL counterpart: GL_R16I.
     R16i,
 
-    /// Single-component 8-bit typeless format. \n
-    /// D3D counterpart: DXGI_FORMAT_R8_TYPELESS. OpenGL does not have direct
-    /// counterpart, GL_R8 is used.
-    R8,
-
     /// Single-component 8-bit unsigned-normalized-integer format. \n
     /// D3D counterpart: DXGI_FORMAT_R8_UNORM. OpenGL counterpart: GL_R8.
-    R8unorm,
+    R8,
 
     /// Single-component 8-bit unsigned-integer format. \n
     /// D3D counterpart: DXGI_FORMAT_R8_UINT. OpenGL counterpart: GL_R8UI.
-    R8u,
+    R8ui,
 
     /// Single-component 8-bit signed-normalized-integer format. \n
     /// D3D counterpart: DXGI_FORMAT_R8_SNORM. OpenGL counterpart: GL_R8_SNORM.
-    R8inorm,
+    R8snorm,
 
     /// Single-component 8-bit signed-integer format. \n
     /// D3D counterpart: DXGI_FORMAT_R8_SINT. OpenGL counterpart: GL_R8I.
@@ -366,40 +273,30 @@ enum class TextureFormat : uint16_t {
     /// only. \n
     /// D3D counterpart: DXGI_FORMAT_A8_UNORM
     /// \warning This format is not available in OpenGL
-    A8unorm,
+    A8,
 
     /// Single-component 1-bit format. \n
     /// D3D counterpart: DXGI_FORMAT_R1_UNORM
     /// \warning This format is not available in OpenGL
-    R1unorm,
+    R1,
 
     /// Three partial-precision floating pointer numbers sharing single exponent
     /// encoded into a 32-bit value. \n
     /// D3D counterpart: DXGI_FORMAT_R9G9B9E5_SHAREDEXP. OpenGL counterpart:
     /// GL_RGB9_E5.
-    Rgb9_E5_sharex,
+    Rgb9_E5,
 
     /// Four-component unsigned-normalized integer format analogous to UYVY
     /// encoding. \n
     /// D3D counterpart: DXGI_FORMAT_R8G8_B8G8_UNORM
     /// \warning This format is not available in OpenGL
-    Rg8_B8_G8unorm,
+    Rg8_B8_G8,
 
     /// Four-component unsigned-normalized integer format analogous to YUY2
     /// encoding. \n
     /// D3D counterpart: DXGI_FORMAT_G8R8_G8B8_UNORM
     /// \warning This format is not available in OpenGL
-    G8_R8_G8_B8unorm,
-
-    /// Four-component typeless block-compression format with 1:8 compression
-    /// ratio.\n
-    /// D3D counterpart: DXGI_FORMAT_BC1_TYPELESS. OpenGL does not have direct
-    /// counterpart, GL_COMPRESSED_RGB_S3TC_DXT1_EXT is used. \n
-    /// [GL_EXT_texture_compression_s3tc]:
-    /// https://www.khronos.org/registry/gles/extensions/EXT/texture_compression_s3tc.txt
-    /// OpenGL & OpenGLES: [GL_EXT_texture_compression_s3tc][] extension is
-    /// required
-    BC1,
+    G8_R8_G8_B8,
 
     /// Four-component unsigned-normalized-integer block-compression format with
     /// 5 bits for R, 6 bits for G, 5 bits for B, and 0 or 1 bit for A channel.
@@ -411,7 +308,7 @@ enum class TextureFormat : uint16_t {
     /// https://www.khronos.org/registry/gles/extensions/EXT/texture_compression_s3tc.txt
     /// OpenGL & OpenGLES: [GL_EXT_texture_compression_s3tc][] extension is
     /// required
-    BC1unorm,
+    BC1,
 
     /// Four-component unsigned-normalized-integer block-compression sRGB format
     /// with 5 bits for R, 6 bits for G, 5 bits for B, and 0 or 1 bit for A
@@ -424,17 +321,7 @@ enum class TextureFormat : uint16_t {
     /// https://www.khronos.org/registry/gles/extensions/EXT/texture_compression_s3tc.txt
     /// OpenGL & OpenGLES: [GL_EXT_texture_compression_s3tc][] extension is
     /// required
-    BC1unorm_Srgb,
-
-    /// Four component typeless block-compression format with 1:4 compression
-    /// ratio.\n
-    /// D3D counterpart: DXGI_FORMAT_BC2_TYPELESS. OpenGL does not have direct
-    /// counterpart, GL_COMPRESSED_RGBA_S3TC_DXT3_EXT is used. \n
-    /// [GL_EXT_texture_compression_s3tc]:
-    /// https://www.khronos.org/registry/gles/extensions/EXT/texture_compression_s3tc.txt
-    /// OpenGL & OpenGLES: [GL_EXT_texture_compression_s3tc][] extension is
-    /// required
-    BC2,
+    BC1_Srgb,
 
     /// Four-component unsigned-normalized-integer block-compression format with
     /// 5 bits for R, 6 bits for G, 5 bits for B, and 4 bits for low-coherent
@@ -447,7 +334,7 @@ enum class TextureFormat : uint16_t {
     /// https://www.khronos.org/registry/gles/extensions/EXT/texture_compression_s3tc.txt
     /// OpenGL & OpenGLES: [GL_EXT_texture_compression_s3tc][] extension is
     /// required
-    BC2unorm,
+    BC2,
 
     /// Four-component signed-normalized-integer block-compression sRGB format
     /// with 5 bits for R, 6 bits for G, 5 bits for B, and 4 bits for
@@ -460,17 +347,7 @@ enum class TextureFormat : uint16_t {
     /// https://www.khronos.org/registry/gles/extensions/EXT/texture_compression_s3tc.txt
     /// OpenGL & OpenGLES: [GL_EXT_texture_compression_s3tc][] extension is
     /// required
-    BC2unorm_Srgb,
-
-    /// Four-component typeless block-compression format with 1:4 compression
-    /// ratio.\n
-    /// D3D counterpart: DXGI_FORMAT_BC3_TYPELESS. OpenGL does not have direct
-    /// counterpart, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT is used. \n
-    /// [GL_EXT_texture_compression_s3tc]:
-    /// https://www.khronos.org/registry/gles/extensions/EXT/texture_compression_s3tc.txt
-    /// OpenGL & OpenGLES: [GL_EXT_texture_compression_s3tc][] extension is
-    /// required
-    BC3,
+    BC2_Srgb,
 
     /// Four-component unsigned-normalized-integer block-compression format with
     /// 5 bits for R, 6 bits for G, 5 bits for B, and 8 bits for highly-coherent
@@ -483,7 +360,7 @@ enum class TextureFormat : uint16_t {
     /// https://www.khronos.org/registry/gles/extensions/EXT/texture_compression_s3tc.txt
     /// OpenGL & OpenGLES: [GL_EXT_texture_compression_s3tc][] extension is
     /// required
-    BC3unorm,
+    BC3,
 
     /// Four-component unsigned-normalized-integer block-compression sRGB format
     /// with 5 bits for R, 6 bits for G, 5 bits for B, and 8 bits for
@@ -496,17 +373,7 @@ enum class TextureFormat : uint16_t {
     /// https://www.khronos.org/registry/gles/extensions/EXT/texture_compression_s3tc.txt
     /// OpenGL & OpenGLES: [GL_EXT_texture_compression_s3tc][] extension is
     /// required
-    BC3unorm_Srgb,
-
-    /// One-component typeless block-compression format with 1:2 compression
-    /// ratio. \n
-    /// D3D counterpart: DXGI_FORMAT_BC4_TYPELESS. OpenGL does not have direct
-    /// counterpart, GL_COMPRESSED_RED_RGTC1 is used. \n
-    /// [GL_ARB_texture_compression_rgtc]:
-    /// https://www.opengl.org/registry/specs/ARB/texture_compression_rgtc.txt
-    /// OpenGL & OpenGLES: [GL_ARB_texture_compression_rgtc][] extension is
-    /// required
-    BC4,
+    BC3_Srgb,
 
     /// One-component unsigned-normalized-integer block-compression format with
     /// 8 bits for R channel.
@@ -518,7 +385,7 @@ enum class TextureFormat : uint16_t {
     /// https://www.opengl.org/registry/specs/ARB/texture_compression_rgtc.txt
     /// OpenGL & OpenGLES: [GL_ARB_texture_compression_rgtc][] extension is
     /// required
-    BC4unorm,
+    BC4,
 
     /// One-component signed-normalized-integer block-compression format with 8
     /// bits for R channel.
@@ -530,17 +397,7 @@ enum class TextureFormat : uint16_t {
     /// https://www.opengl.org/registry/specs/ARB/texture_compression_rgtc.txt
     /// OpenGL & OpenGLES: [GL_ARB_texture_compression_rgtc][] extension is
     /// required
-    BC4inorm,
-
-    /// Two-component typeless block-compression format with 1:2 compression
-    /// ratio. \n
-    /// D3D counterpart: DXGI_FORMAT_BC5_TYPELESS. OpenGL does not have direct
-    /// counterpart, GL_COMPRESSED_RG_RGTC2 is used. \n
-    /// [GL_ARB_texture_compression_rgtc]:
-    /// https://www.opengl.org/registry/specs/ARB/texture_compression_rgtc.txt
-    /// OpenGL & OpenGLES: [GL_ARB_texture_compression_rgtc][] extension is
-    /// required
-    BC5,
+    BC4snorm,
 
     /// Two-component unsigned-normalized-integer block-compression format with
     /// 8 bits for R and 8 bits for G channel.
@@ -552,7 +409,7 @@ enum class TextureFormat : uint16_t {
     /// https://www.opengl.org/registry/specs/ARB/texture_compression_rgtc.txt
     /// OpenGL & OpenGLES: [GL_ARB_texture_compression_rgtc][] extension is
     /// required
-    BC5unorm,
+    BC5,
 
     /// Two-component signed-normalized-integer block-compression format with 8
     /// bits for R and 8 bits for G channel.
@@ -564,71 +421,51 @@ enum class TextureFormat : uint16_t {
     /// https://www.opengl.org/registry/specs/ARB/texture_compression_rgtc.txt
     /// OpenGL & OpenGLES: [GL_ARB_texture_compression_rgtc][] extension is
     /// required
-    BC5inorm,
+    BC5snorm,
 
     /// Three-component 16-bit unsigned-normalized-integer format with 5 bits
     /// for blue, 6 bits for green, and 5 bits for red channel. \n
     /// D3D counterpart: DXGI_FORMAT_B5G6R5_UNORM
     /// \warning This format is not available until D3D11.1 and Windows 8. It is
     /// also not available in OpenGL
-    B5_G6_R5unorm,
+    B5_G6_R5,
 
     /// Four-component 16-bit unsigned-normalized-integer format with 5 bits for
     /// each color channel and 1-bit alpha. \n
     /// D3D counterpart: DXGI_FORMAT_B5G5R5A1_UNORM
     /// \warning This format is not available until D3D11.1 and Windows 8. It is
     /// also not available in OpenGL
-    B5_G5_R5_A1unorm,
+    B5_G5_R5_A1,
 
     /// Four-component 32-bit unsigned-normalized-integer format with 8 bits for
     /// each channel. \n
     /// D3D counterpart: DXGI_FORMAT_B8G8R8A8_UNORM.
     /// \warning This format is not available in OpenGL
-    Bgra8unorm,
+    Bgra8,
 
     /// Four-component 32-bit unsigned-normalized-integer format with 8 bits for
     /// each color channel and 8 bits unused. \n
     /// D3D counterpart: DXGI_FORMAT_B8G8R8X8_UNORM.
     /// \warning This format is not available in OpenGL
-    Bgrx8unorm,
+    Bgrx8,
 
     /// Four-component 32-bit 2.8-biased fixed-point format with 10 bits for
     /// each color channel and 2-bit alpha. \n
     /// D3D counterpart: DXGI_FORMAT_R10G10B10_XR_BIAS_A2_UNORM.
     /// \warning This format is not available in OpenGL
-    R10_G10_B10_XR_BIAS_A2unorm,
-
-    /// Four-component 32-bit typeless format with 8 bits for each channel. \n
-    /// D3D counterpart: DXGI_FORMAT_B8G8R8A8_TYPELESS.
-    /// \warning This format is not available in OpenGL
-    BGRA8,
+    R10_G10_B10_XR_BIAS_A2,
 
     /// Four-component 32-bit unsigned-normalized sRGB format with 8 bits for
     /// each channel. \n
     /// D3D counterpart: DXGI_FORMAT_B8G8R8A8_UNORM_SRGB.
     /// \warning This format is not available in OpenGL.
-    Bgra8unorm_Srgb,
-
-    /// Four-component 32-bit typeless format that with 8 bits for each color
-    /// channel, and 8 bits are unused. \n
-    /// D3D counterpart: DXGI_FORMAT_B8G8R8X8_TYPELESS.
-    /// \warning This format is not available in OpenGL.
-    Bgrx8,
+    Bgra8_Srgb,
 
     /// Four-component 32-bit unsigned-normalized sRGB format with 8 bits for
     /// each color channel, and 8 bits are unused. \n
     /// D3D counterpart: DXGI_FORMAT_B8G8R8X8_UNORM_SRGB.
     /// \warning This format is not available in OpenGL.
-    Bgrx8unorm_Srgb,
-
-    /// Three-component typeless block-compression format. \n
-    /// D3D counterpart: DXGI_FORMAT_BC6H_TYPELESS. OpenGL does not have direct
-    /// counterpart, GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT is used. \n
-    /// [GL_ARB_texture_compression_bptc]:
-    /// https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_texture_compression_bptc.txt
-    /// OpenGL: [GL_ARB_texture_compression_bptc][] extension is required. Not
-    /// supported in at least OpenGLES3.1
-    BC6H,
+    Bgrx8_Srgb,
 
     /// Three-component unsigned half-precision floating-point format with 16
     /// bits for each channel. \n
@@ -650,15 +487,6 @@ enum class TextureFormat : uint16_t {
     /// supported in at least OpenGLES3.1
     BC6H_SF16,
 
-    /// Three-component typeless block-compression format. \n
-    /// D3D counterpart: DXGI_FORMAT_BC7_TYPELESS. OpenGL does not have direct
-    /// counterpart, GL_COMPRESSED_RGBA_BPTC_UNORM is used. \n
-    /// [GL_ARB_texture_compression_bptc]:
-    /// https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_texture_compression_bptc.txt
-    /// OpenGL: [GL_ARB_texture_compression_bptc][] extension is required. Not
-    /// supported in at least OpenGLES3.1
-    BC7,
-
     /// Three-component block-compression unsigned-normalized-integer format
     /// with 4 to 7 bits per color channel and 0 to 8 bits of alpha. \n
     /// D3D counterpart: DXGI_FORMAT_BC7_UNORM. OpenGL counterpart:
@@ -667,7 +495,7 @@ enum class TextureFormat : uint16_t {
     /// https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_texture_compression_bptc.txt
     /// OpenGL: [GL_ARB_texture_compression_bptc][] extension is required. Not
     /// supported in at least OpenGLES3.1
-    BC7unorm,
+    BC7,
 
     /// Three-component block-compression unsigned-normalized-integer sRGB
     /// format with 4 to 7 bits per color channel and 0 to 8 bits of alpha. \n
@@ -677,38 +505,50 @@ enum class TextureFormat : uint16_t {
     /// https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_texture_compression_bptc.txt
     /// OpenGL: [GL_ARB_texture_compression_bptc][] extension is required. Not
     /// supported in at least OpenGLES3.1
-    BC7unorm_Srgb,
+    BC7_Srgb,
 
     /// Three-component block-compression unsigned-normalized-integer format. \n
     /// OpenGL counterpart: GL_COMPRESSED_RGB8_ETC2.
-    ETC2_Rgb8unorm,
+    ETC2_Rgb8,
 
     /// Three-component block-compression unsigned-normalized-integer sRGB
     /// format. \n
     /// OpenGL counterpart: GL_COMPRESSED_SRGB8_ETC2.
-    ETC2_Rgb8unorm_Srgb,
+    ETC2_Rgb8_Srgb,
 
     /// Four-component block-compression unsigned-normalized-integer format. \n
     /// OpenGL counterpart: GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2.
-    ETC2_Rgb8_A1unorm,
+    ETC2_Rgb8_A1,
 
     /// Four-component block-compression unsigned-normalized-integer sRGB
     /// format. \n
     /// OpenGL counterpart: GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2.
-    ETC2_Rgb8_A1unorm_Srgb,
+    ETC2_Rgb8_A1_Srgb,
 
     /// Four-component block-compression unsigned-normalized-integer format. \n
     /// OpenGL counterpart: GL_COMPRESSED_RGBA8_ETC2_EAC.
-    ETC2_Rgba8unorm,
+    ETC2_Rgba8,
 
     /// Four-component block-compression unsigned-normalized-integer sRGB
     /// format. \n
     /// OpenGL counterpart: GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC.
-    ETC2_Rgba8unorm_Srgb,
+    ETC2_Rgba8_Srgb,
 
     /// Helper member containing the total number of texture formats in the
     /// enumeration
     NUM_FORMATS
+};
+
+enum class TextureType : uint8_t {
+    Undefined = 0, ///< Texture type undefined
+    Buffer,        ///< Buffer
+    Tex1D,         ///< One-dimensional texture
+    Tex1DArray,    ///< One-dimensional texture array
+    Tex2D,         ///< Two-dimensional texture
+    Tex2DArray,    ///< Two-dimensional texture array
+    Tex3D,         ///< Three-dimensional texture
+    TexCube,       ///< Cube-map texture
+    TexCubeArray   ///< Cube-map array texture
 };
 
 ///////////////////////////////////////////////////////////

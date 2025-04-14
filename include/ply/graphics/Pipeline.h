@@ -12,6 +12,7 @@ namespace ply {
 
 class RenderDevice;
 class Buffer;
+class Texture;
 
 namespace priv {
     struct PipelineDesc;
@@ -86,6 +87,23 @@ public:
         const char* name,
         const Buffer& resource
     );
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Set a mutable or dynamic variable
+    ///
+    /// Mutable resources can only be set once per resource binding.
+    /// Dynamic resources can be set multiple times.
+    ///
+    /// \param stages - shader stages to which the variable belongs
+    /// \param name - name of the variable
+    /// \param resource - texture object to bind to the variable
+    ///
+    ///////////////////////////////////////////////////////////
+    void set(
+        Shader::Type stages,
+        const char* name,
+        const Texture& resource
+    );
 };
 
 ///////////////////////////////////////////////////////////
@@ -106,9 +124,9 @@ public:
     ///////////////////////////////////////////////////////////
     /// \brief Set a static variable
     ///
-    /// \param [in] stages - shader stages to which the variable belongs
-    /// \param [in] name - name of the variable
-    /// \param [in] resource - buffer object to bind to the variable
+    /// \param stages - shader stages to which the variable belongs
+    /// \param name - name of the variable
+    /// \param resource - buffer object to bind to the variable
     ///
     /// \remarks This method is used to set static variables, which are bound
     /// once and cannot be changed later.
@@ -118,6 +136,23 @@ public:
         Shader::Type stages,
         const char* name,
         const Buffer& resource
+    );
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Set a static variable
+    ///
+    /// \param stages - shader stages to which the variable belongs
+    /// \param name - name of the variable
+    /// \param resource - texture object to bind to the variable
+    ///
+    /// \remarks This method is used to set static variables, which are bound
+    /// once and cannot be changed later.
+    ///
+    ///////////////////////////////////////////////////////////
+    void setStaticVariable(
+        Shader::Type stages,
+        const char* name,
+        const Texture& resource
     );
 
     ResourceBinding createResourceBinding();
@@ -191,8 +226,8 @@ public:
     PipelineBuilder& addSampler(
         const std::string& name,
         Shader::Type stages,
-        TextureFilter filter,
-        TextureAddress address
+        TextureFilter filter = TextureFilter::Linear,
+        TextureAddress address = TextureAddress::Clamp
     );
 
     Pipeline create();
