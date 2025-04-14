@@ -249,53 +249,37 @@ void RenderContext::setIndexBuffer(const Buffer& buffer, uint64_t offset) {
 }
 
 ///////////////////////////////////////////////////////////
-void RenderContext::draw(
-    Pipeline& pipeline,
-    uint32_t numVertices,
-    ResourceBinding* binding
-) {
-    auto context = m_device->m_deviceContext;
-    auto pso = static_cast<IPipelineState*>(pipeline.getResource());
-    context->SetPipelineState(pso);
-
-    // Set binding
-    if (binding) {
-        context->CommitShaderResources(
-            static_cast<IShaderResourceBinding*>(binding->getResource()),
-            RESOURCE_STATE_TRANSITION_MODE_TRANSITION
-        );
-    }
-
-    DrawAttribs drawAttrs;
-    drawAttrs.NumVertices = numVertices;
-    drawAttrs.Flags = DRAW_FLAG_VERIFY_ALL;
-    context->Draw(drawAttrs);
+void RenderContext::setPipeline(const Pipeline& pipeline) {
+    m_device->m_deviceContext->SetPipelineState(
+        static_cast<IPipelineState*>(pipeline.getResource())
+    );
 }
 
 ///////////////////////////////////////////////////////////
-void RenderContext::drawIndexed(
-    Pipeline& pipeline,
-    uint32_t numVertices,
-    ResourceBinding* binding,
-    Type dtype
-) {
-    auto context = m_device->m_deviceContext;
-    auto pso = static_cast<IPipelineState*>(pipeline.getResource());
-    context->SetPipelineState(pso);
+void RenderContext::setResourceBinding(const ResourceBinding& binding) {
+    m_device->m_deviceContext->CommitShaderResources(
+        static_cast<IShaderResourceBinding*>(binding.getResource()),
+        RESOURCE_STATE_TRANSITION_MODE_TRANSITION
+    );
+}
 
-    // Set binding
-    if (binding) {
-        context->CommitShaderResources(
-            static_cast<IShaderResourceBinding*>(binding->getResource()),
-            RESOURCE_STATE_TRANSITION_MODE_TRANSITION
-        );
-    }
+///////////////////////////////////////////////////////////
+void RenderContext::draw(uint32_t numVertices, uint32_t instances) {
+    DrawAttribs drawAttrs;
+    drawAttrs.NumVertices = numVertices;
+    drawAttrs.NumInstances = instances;
+    drawAttrs.Flags = DRAW_FLAG_VERIFY_ALL;
+    m_device->m_deviceContext->Draw(drawAttrs);
+}
 
+///////////////////////////////////////////////////////////
+void RenderContext::drawIndexed(uint32_t numVertices, uint32_t instances, Type dtype) {
     DrawIndexedAttribs drawAttrs;
     drawAttrs.NumIndices = numVertices;
+    drawAttrs.NumInstances = instances;
     drawAttrs.IndexType = dtype == Type::Uint32 ? VT_UINT32 : VT_UINT16;
     drawAttrs.Flags = DRAW_FLAG_VERIFY_ALL;
-    context->DrawIndexed(drawAttrs);
+    m_device->m_deviceContext->DrawIndexed(drawAttrs);
 }
 
 ///////////////////////////////////////////////////////////

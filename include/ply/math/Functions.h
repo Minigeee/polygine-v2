@@ -50,4 +50,6 @@ using glm::isnan;
 using glm::degrees;
 using glm::radians;
 
+constexpr float PI = 3.14159265f;
+
 }  // namespace ply

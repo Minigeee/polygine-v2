@@ -34,6 +34,7 @@ struct InputLayout {
     uint32_t components;
     Type type;
     bool normalized;
+    bool instance;
 };
 
 ///////////////////////////////////////////////////////////
@@ -212,6 +213,7 @@ public:
         uint32_t slot,
         uint32_t components,
         Type type,
+        bool instance = false,
         bool normalized = false
     );
 

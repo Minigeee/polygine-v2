@@ -40,6 +40,17 @@ Buffer& Buffer::operator=(Buffer&& other) noexcept {
 }
 
 ///////////////////////////////////////////////////////////
+void Buffer::update(const void* data, size_t size, size_t offset) {
+    m_device->m_deviceContext->UpdateBuffer(
+        BUFFER(m_resource),
+        offset,
+        size,
+        data,
+        RESOURCE_STATE_TRANSITION_MODE_TRANSITION
+    );
+}
+
+///////////////////////////////////////////////////////////
 void* Buffer::map(MapMode mode, MapFlag flags) {
     void* mapped = nullptr;
     m_device->m_deviceContext->MapBuffer(

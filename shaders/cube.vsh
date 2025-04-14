@@ -1,15 +1,20 @@
 cbuffer Constants
 {
-    float4x4 g_WorldViewProj;
+    float4x4 g_ViewProj;
+    float4x4 g_Rotation;
 };
 
-// Vertex shader takes two inputs: vertex position and uv coordinates.
-// By convention, Diligent Engine expects vertex shader inputs to be 
-// labeled 'ATTRIBn', where n is the attribute number.
 struct VSInput
 {
-    float3 Pos : ATTRIB0;
-    float2 UV  : ATTRIB1;
+    // Vertex attributes
+    float3 Pos      : ATTRIB0; 
+    float2 UV       : ATTRIB1;
+
+    // Instance attributes
+    float4 MtrxRow0 : ATTRIB2;
+    float4 MtrxRow1 : ATTRIB3;
+    float4 MtrxRow2 : ATTRIB4;
+    float4 MtrxRow3 : ATTRIB5;
 };
 
 struct PSInput 
@@ -24,6 +29,12 @@ struct PSInput
 void main(in  VSInput VSIn,
           out PSInput PSIn) 
 {
-    PSIn.Pos = mul( float4(VSIn.Pos,1.0), g_WorldViewProj);
+    // HLSL matrices are row-major while GLSL matrices are column-major. We will
+    // use convenience function MatrixFromRows() appropriately defined by the engine
+    float4x4 InstanceMatr = MatrixFromRows(VSIn.MtrxRow0, VSIn.MtrxRow1, VSIn.MtrxRow2, VSIn.MtrxRow3);
+    // Apply rotation
+    float4 TransformedPos = InstanceMatr * g_Rotation * float4(VSIn.Pos, 1.0);
+    // Apply view-projection matrix
+    PSIn.Pos = g_ViewProj * TransformedPos;
     PSIn.UV  = VSIn.UV;
 }

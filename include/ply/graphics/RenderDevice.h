@@ -2,11 +2,11 @@
 
 #include <ply/core/Macros.h>
 #include <ply/graphics/Buffer.h>
-#include <ply/graphics/Pipeline.h>
-#include <ply/graphics/Texture.h>
-#include <ply/graphics/Shader.h>
-#include <ply/math/Types.h>
 #include <ply/graphics/Image.h>
+#include <ply/graphics/Pipeline.h>
+#include <ply/graphics/Shader.h>
+#include <ply/graphics/Texture.h>
+#include <ply/math/Types.h>
 
 namespace ply {
 
@@ -97,38 +97,43 @@ public:
     /// \param buffer The index buffer to set
     /// \param offset The offset to start reading from the index buffer
     ///
-    /////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////
     void setIndexBuffer(const Buffer& buffer, uint64_t offset = 0);
 
-    /////////////////////////////////////////////////////////////
-    /// \brief Draw to current render target using given pipeline
+    ///////////////////////////////////////////////////////////
+    /// \brief Set current pipeline
     ///
-    /// \param pipeline The pipeline to use for rendering
+    /// \param pipeline The pipeline to set
+    ///
+    ///////////////////////////////////////////////////////////
+    void setPipeline(const Pipeline& pipeline);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Set current resource binding to use for current pipeline
+    ///
+    /// \param binding The resource binding to set
+    ///
+    ///////////////////////////////////////////////////////////
+    void setResourceBinding(const ResourceBinding& binding);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Draw to current render target using current pipeline
+    ///
     /// \param numVertices Number of vertices to draw
-    /// \param binding The resource binding to use for rendering
+    /// \param instances Number of instances to draw
     ///
     /////////////////////////////////////////////////////////////
-    void draw(
-        Pipeline& pipeline,
-        uint32_t numVertices,
-        ResourceBinding* binding = nullptr
-    );
+    void draw(uint32_t numVertices, uint32_t instances = 1);
 
     /////////////////////////////////////////////////////////////
-    /// \brief Draw to current render target using given pipeline
+    /// \brief Draw to current render target using current pipeline
     ///
-    /// \param pipeline The pipeline to use for rendering
     /// \param numVertices Number of vertices to draw
-    /// \param binding The resource binding to use for rendering
+    /// \param instances Number of instances to draw
     /// \param dtype The data type of the index buffer
     ///
     /////////////////////////////////////////////////////////////
-    void drawIndexed(
-        Pipeline& pipeline,
-        uint32_t numVertices,
-        ResourceBinding* binding = nullptr,
-        Type dtype = Type::Uint32
-    );
+    void drawIndexed(uint32_t numVertices, uint32_t instances = 1, Type dtype = Type::Uint32);
 
     /////////////////////////////////////////////////////////////
     /// \brief Present the current back buffer

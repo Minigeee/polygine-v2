@@ -16,6 +16,8 @@
 
 #include <Common/interface/AdvancedMath.hpp>
 #include <iostream>
+#include <ply/math/Functions.h>
+#include <random>
 
 struct Position {
     float x, y, z;
@@ -190,37 +192,69 @@ ply::Buffer createIndexBuffer(ply::RenderDevice& device) {
         .create();
 }
 
-ply::Matrix4f createTransformMatrix(float time) {
-    ply::Matrix4f T = glm::rotate(
-        glm::mat4(1.0f),
-        glm::radians(time * 45.0f),
-        ply::Vector3f{0, 1, 0}
+void populateInstanceBuffer(ply::Buffer& buffer, size_t gridSize) {
+    // Populate instance data buffer
+    const auto zGridSize = static_cast<size_t>(gridSize);
+    std::vector<ply::Matrix4f> InstanceData(zGridSize * zGridSize * zGridSize);
+
+    float fGridSize = static_cast<float>(gridSize);
+
+    std::mt19937 gen; // Standard mersenne_twister_engine. Use default seed
+                      // to generate consistent distribution.
+
+    std::uniform_real_distribution<float> scale_distr(0.3f, 1.0f);
+    std::uniform_real_distribution<float> offset_distr(-0.15f, +0.15f);
+    std::uniform_real_distribution<float> rot_distr(-ply::PI, +ply::PI);
+
+    float BaseScale = 0.6f / fGridSize;
+    int instId = 0;
+    for (int x = 0; x < gridSize; ++x) {
+        for (int y = 0; y < gridSize; ++y) {
+            for (int z = 0; z < gridSize; ++z) {
+                // Add random offset from central position in the grid
+                float xOffset =
+                    2.f * (x + 0.5f + offset_distr(gen)) / fGridSize - 1.f;
+                float yOffset =
+                    2.f * (y + 0.5f + offset_distr(gen)) / fGridSize - 1.f;
+                float zOffset =
+                    2.f * (z + 0.5f + offset_distr(gen)) / fGridSize - 1.f;
+
+                // Random scale
+                float scale = BaseScale * scale_distr(gen);
+
+                // Random rotation
+                ply::Matrix4f matrix = ply::toTransformMatrix(
+                    ply::Vector3f{xOffset, yOffset, zOffset},
+                    ply::Vector3f(
+                        rot_distr(gen),
+                        rot_distr(gen),
+                        rot_distr(gen)
+                    ),
+                    ply::Vector3f(scale)
+                );
+
+                InstanceData[instId++] = matrix;
+            }
+        }
+    }
+
+    buffer.update(InstanceData);
+}
+
+ply::Matrix4f createProjViewMatrix(float time) {
+    ply::Matrix4f V = ply::lookAt(
+        ply::Vector3f(2.0f, 2.0f, -5.0f),
+        ply::Vector3f(0.0f, 0.0f, 0.0f),
+        ply::Vector3f(0.0f, 1.0f, 0.0f)
     );
 
-    ply::Matrix4f V = glm::lookAt(
-        ply::Vector3f{5, 0, 5},
-        ply::Vector3f{0, 0, 0},
-        ply::Vector3f{0, 1, 0}
-    );
+    ply::Matrix4f P = ply::perspective(45.0f, 8.0f / 6.0f, 0.1f, 100.0f);
 
-    ply::Matrix4f P =
-        ply::toPerspectiveMatrix(45.0f, 8.0f / 6.0f, 0.1f, 100.0f);
-
-    return P * V * T;
+    return P * V;
 }
 
 int main(int argc, char* argv[]) {
     // WIP :
-    // - [X] Pipeline resource layout
-    // - [X] Pipeline static variable setter
-    // - [X] Pipeline resource binding api
-    // - [X] Buffer mapping util
-    // - [X] Render context methods: set buffers, clear, set pipeline, commit
-    // resources
-    //    - Try to figure out a way to more cleanly expose these functionalities
-    // - [X] Indexed draw
-    // - [X] Finish setting up cube demo: create shaders, apply transform
-    // matrices
 
     // ecsTest();
     // schedulerTest();
@@ -242,15 +276,20 @@ int main(int argc, char* argv[]) {
         device.pipeline()
             .shader(&vs)
             .shader(&ps)
-            .addInputLayout(0, 0, 3, ply::Type::Float32) // Position
-            .addInputLayout(1, 0, 2, ply::Type::Float32) // UV
+            .addInputLayout(0, 0, 3, ply::Type::Float32)       // Position
+            .addInputLayout(1, 0, 2, ply::Type::Float32)       // UV
+            .addInputLayout(2, 1, 4, ply::Type::Float32, true) // Instance
+                                                               // matrix
+            .addInputLayout(3, 1, 4, ply::Type::Float32, true)
+            .addInputLayout(4, 1, 4, ply::Type::Float32, true)
+            .addInputLayout(5, 1, 4, ply::Type::Float32, true)
             .addVariable(
                 "g_Texture",
                 ply::Shader::Pixel,
                 ply::ShaderResourceType::Mutable
             ) // Texture
             .addSampler("g_Texture", ply::Shader::Pixel)
-            .cull(ply::CullMode::None)
+            .cull(ply::CullMode::Back)
             .create();
 
     // Create constants buffer
@@ -259,15 +298,28 @@ int main(int argc, char* argv[]) {
             .bind(ply::ResourceBind::UniformBuffer)
             .usage(ply::ResourceUsage::Dynamic)
             .access(ply::ResourceAccess::Write)
-            .size(sizeof(ply::Matrix4f))
+            .size(2 * sizeof(ply::Matrix4f))
             .create();
     pipeline.setStaticVariable(ply::Shader::Vertex, "Constants", buffer);
 
+    // Vertex buffer
+    auto vertexBuffer = createVertexBuffer(device);
+    // Index buffer
+    auto indexBuffer = createIndexBuffer(device);
+
+    // Instance buffer
+    constexpr size_t GRID_SIZE = 10;
+    constexpr size_t MAX_INSTANCES = GRID_SIZE * GRID_SIZE * GRID_SIZE;
+    auto instanceBuffer =
+        device.buffer()
+            .bind(ply::ResourceBind::VertexBuffer)
+            .usage(ply::ResourceUsage::Default)
+            .size(MAX_INSTANCES * sizeof(ply::Matrix4f))
+            .create();
+    populateInstanceBuffer(instanceBuffer, GRID_SIZE);
+
     // Create default resource binding
     auto binding = pipeline.createResourceBinding();
-
-    auto vertexBuffer = createVertexBuffer(device);
-    auto indexBuffer = createIndexBuffer(device);
 
     // Load image texture
     ply::Image image("examples/assets/DGLogo.png");
@@ -325,20 +377,32 @@ int main(int argc, char* argv[]) {
 
         // Update transform matrix
         float time = clock.getElapsedTime().seconds();
-        auto transform = createTransformMatrix(time);
-        ply::Matrix4f* mapped = (ply::Matrix4f*)buffer.map(
-            ply::MapMode::Write,
-            ply::MapFlag::Discard
-        );
-        mapped[0] = glm::transpose(transform);
-        buffer.unmap();
+        {
+            ply::Matrix4f* mapped = (ply::Matrix4f*)buffer.map(
+                ply::MapMode::Write,
+                ply::MapFlag::Discard
+            );
+
+            auto projView = createProjViewMatrix(time);
+            mapped[0] = projView;
+
+            mapped[1] = glm::rotate(
+                glm::mat4(1.0f),
+                glm::radians(time * 45.0f),
+                ply::Vector3f{0, 1, 0}
+            );
+
+            buffer.unmap();
+        }
 
         device.context.bindBackBuffer();
         device.context.clear(ply::ClearFlag::Color | ply::ClearFlag::Depth);
 
-        device.context.setVertexBuffers({&vertexBuffer});
+        device.context.setPipeline(pipeline);
+        device.context.setVertexBuffers({&vertexBuffer, &instanceBuffer});
         device.context.setIndexBuffer(indexBuffer);
-        device.context.drawIndexed(pipeline, 36, &binding);
+        device.context.setResourceBinding(binding);
+        device.context.drawIndexed(36, MAX_INSTANCES);
         device.context.present();
     }
 

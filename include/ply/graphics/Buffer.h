@@ -24,6 +24,22 @@ public:
     Buffer(Buffer&&) noexcept;
     Buffer& operator=(Buffer&&) noexcept;
 
+    void update(const void* data, size_t size, size_t offset = 0);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Update data in a buffer
+    ///
+    /// The buffer must have been created and its size
+    /// must be bigger than the new data size
+    ///
+    /// \param data The new data to replace in the buffer
+    /// \param offset The destination offset to copy the data to (measured in
+    /// number of elements)
+    ///
+    ///////////////////////////////////////////////////////////
+    template <typename T>
+    void update(const std::vector<T>& data, uint32_t offset = 0);
+
     void* map(MapMode mode, MapFlag flags = MapFlag::None);
 
     void unmap();
@@ -57,10 +73,7 @@ public:
     BufferBuilder& size(size_t size);
 
     template <typename T>
-    BufferBuilder& data(const std::vector<T>& data) {
-        this->data(data.data(), data.size() * sizeof(T));
-        return *this;
-    }
+    BufferBuilder& data(const std::vector<T>& data);
 
     BufferBuilder& data(const void* data, size_t size);
 
@@ -90,3 +103,5 @@ private:
 };
 
 } // namespace ply
+
+#include <ply/graphics/Buffer.inl>

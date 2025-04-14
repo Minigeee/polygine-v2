@@ -23,9 +23,17 @@ void ResourceBinding::set(
     const Buffer& resource
 ) {
     CHECK_F(m_device && m_resource, "resource binding not initialized");
-    RESOURCE_BINDING(m_resource)
-        ->GetVariableByName(static_cast<Diligent::SHADER_TYPE>(stages), name)
-        ->Set(static_cast<Diligent::IBuffer*>(resource.getResource()));
+    auto var =
+        RESOURCE_BINDING(m_resource)
+            ->GetVariableByName(
+                static_cast<Diligent::SHADER_TYPE>(stages),
+                name
+            );
+
+    if (var)
+        var->Set(static_cast<Diligent::IBuffer*>(resource.getResource()));
+    else
+        LOG_F(WARNING, "resource binding variable not found %s", name);
 }
 
 ///////////////////////////////////////////////////////////
@@ -61,12 +69,17 @@ void Pipeline::setStaticVariable(
     const Buffer& resource
 ) {
     CHECK_F(m_device && m_resource, "pipeline not initialized");
-    PIPELINE(m_resource)
-        ->GetStaticVariableByName(
-            static_cast<Diligent::SHADER_TYPE>(stages),
-            name
-        )
-        ->Set(static_cast<Diligent::IBuffer*>(resource.getResource()));
+    auto var =
+        PIPELINE(m_resource)
+            ->GetStaticVariableByName(
+                static_cast<Diligent::SHADER_TYPE>(stages),
+                name
+            );
+
+    if (var)
+        var->Set(static_cast<Diligent::IBuffer*>(resource.getResource()));
+    else
+        LOG_F(WARNING, "static variable not found %s", name);
 }
 
 ///////////////////////////////////////////////////////////
@@ -260,6 +273,7 @@ PipelineBuilder& PipelineBuilder::addInputLayout(
     uint32_t slot,
     uint32_t components,
     Type type,
+    bool instance,
     bool normalized
 ) {
     InputLayout layout;
@@ -267,6 +281,7 @@ PipelineBuilder& PipelineBuilder::addInputLayout(
     layout.slot = slot;
     layout.components = components;
     layout.type = type;
+    layout.instance = instance;
     layout.normalized = normalized;
     m_inputLayouts.push_back(layout);
 
@@ -373,13 +388,16 @@ Pipeline PipelineBuilder::create() {
             break;
         }
 
-        layoutElements.emplace_back(
-            layout.index,
-            layout.slot,
-            layout.components,
-            valueType,
-            layout.normalized
-        );
+        LayoutElement elem;
+        elem.InputIndex = layout.index;
+        elem.BufferSlot = layout.slot;
+        elem.NumComponents = layout.components;
+        elem.ValueType = valueType;
+        elem.IsNormalized = layout.normalized;
+        elem.Frequency = layout.instance ? INPUT_ELEMENT_FREQUENCY_PER_INSTANCE
+                                         : INPUT_ELEMENT_FREQUENCY_PER_VERTEX;
+
+        layoutElements.emplace_back(elem);
     }
 
     // Set layout elements

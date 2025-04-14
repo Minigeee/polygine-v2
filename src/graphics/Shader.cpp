@@ -64,6 +64,9 @@ ShaderBuilder::ShaderBuilder(priv::DeviceImpl* device) :
     m_desc->EntryPoint = "main";
     m_desc->SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
     m_desc->Desc.UseCombinedTextureSamplers = true;
+
+    // idk why but this seems to be necessary (at least with vulkan + glm)
+    m_desc->CompileFlags = SHADER_COMPILE_FLAG_PACK_MATRIX_ROW_MAJOR;
 }
 
 ///////////////////////////////////////////////////////////

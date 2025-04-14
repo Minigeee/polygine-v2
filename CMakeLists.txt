@@ -14,6 +14,10 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_options(-O0)
 endif()
 
+# Coord system
+add_compile_definitions(GLM_FORCE_LEFT_HANDED)
+add_compile_definitions(GLM_FORCE_DEPTH_ZERO_TO_ONE)
+
 # Build the engine library first
 add_subdirectory(src)
 add_subdirectory(extlibs)
