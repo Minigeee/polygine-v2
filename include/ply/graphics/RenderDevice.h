@@ -5,6 +5,7 @@
 #include <ply/graphics/Image.h>
 #include <ply/graphics/Pipeline.h>
 #include <ply/graphics/Shader.h>
+#include <ply/graphics/Framebuffer.h>
 #include <ply/graphics/Texture.h>
 #include <ply/math/Types.h>
 
@@ -115,6 +116,14 @@ public:
     ///
     ///////////////////////////////////////////////////////////
     void setResourceBinding(const ResourceBinding& binding);
+    
+    ///////////////////////////////////////////////////////////
+    /// \brief Set current render target
+    ///
+    /// \param framebuffer The framebuffer to set as the current render target
+    ///
+    ///////////////////////////////////////////////////////////
+    void setRenderTarget(Framebuffer& framebuffer);
 
     ///////////////////////////////////////////////////////////
     /// \brief Draw to current render target using current pipeline
@@ -133,7 +142,11 @@ public:
     /// \param dtype The data type of the index buffer
     ///
     /////////////////////////////////////////////////////////////
-    void drawIndexed(uint32_t numVertices, uint32_t instances = 1, Type dtype = Type::Uint32);
+    void drawIndexed(
+        uint32_t numVertices,
+        uint32_t instances = 1,
+        Type dtype = Type::Uint32
+    );
 
     /////////////////////////////////////////////////////////////
     /// \brief Present the current back buffer
@@ -143,17 +156,13 @@ public:
     /////////////////////////////////////////////////////////////
     void present(uint32_t sync = 1);
 
-    /////////////////////////////////////////////////////////////
-    /// \brief TEMP : Bind current back buffer as render targets
-    ///
-    /////////////////////////////////////////////////////////////
-    void bindBackBuffer();
-
 private:
     priv::DeviceImpl* m_device; //!< Pointer to device
     Vector4f m_clearColor;      //!< Clear color
     float m_clearDepth;         //!< Clear depth
     uint8_t m_clearStencil;     //!< Clear stencil
+
+    Framebuffer* m_currentFramebuffer; //!< Current framebuffer
 };
 
 ///////////////////////////////////////////////////////////
@@ -241,12 +250,30 @@ public:
     /// \brief Create a texture from an image
     ///
     /// \param image The image to create the texture from
-    /// \param mips Number of mipmap levels to generate (use 0 to generate full mip chain)
+    /// \param mips Number of mipmap levels to generate (use 0 to generate full
+    /// mip chain)
     /// \return A texture
     ///
     /////////////////////////////////////////////////////////////
     Texture texture(const Image& image, uint32_t mips = 1);
 
+    /////////////////////////////////////////////////////////////
+    /// \brief Create a framebuffer
+    ///
+    /// \return A framebuffer object
+    ///
+    /// \note This function returns a framebuffer, not a builder object
+    ///
+    /////////////////////////////////////////////////////////////
+    Framebuffer framebuffer();
+
+    /////////////////////////////////////////////////////////////
+    /// \brief Get render device implementation
+    ///
+    /////////////////////////////////////////////////////////////
+    priv::DeviceImpl* getImpl() const;
+
+public:
     RenderContext context; //!< Render context
 
 private:

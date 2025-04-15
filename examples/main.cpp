@@ -192,19 +192,26 @@ ply::Buffer createIndexBuffer(ply::RenderDevice& device) {
         .create();
 }
 
+struct InstanceData {
+    ply::Matrix4f Matrix;
+    float TextureInd = 0;
+};
+
 void populateInstanceBuffer(ply::Buffer& buffer, size_t gridSize) {
     // Populate instance data buffer
     const auto zGridSize = static_cast<size_t>(gridSize);
-    std::vector<ply::Matrix4f> InstanceData(zGridSize * zGridSize * zGridSize);
+    std::vector<InstanceData> instanceData(zGridSize * zGridSize * zGridSize);
 
     float fGridSize = static_cast<float>(gridSize);
 
     std::mt19937 gen; // Standard mersenne_twister_engine. Use default seed
                       // to generate consistent distribution.
 
+    constexpr uint32_t NUM_TEXTURE = 3;
     std::uniform_real_distribution<float> scale_distr(0.3f, 1.0f);
     std::uniform_real_distribution<float> offset_distr(-0.15f, +0.15f);
     std::uniform_real_distribution<float> rot_distr(-ply::PI, +ply::PI);
+    std::uniform_int_distribution<int32_t> tex_distr(0, NUM_TEXTURE - 1);
 
     float BaseScale = 0.6f / fGridSize;
     int instId = 0;
@@ -233,12 +240,16 @@ void populateInstanceBuffer(ply::Buffer& buffer, size_t gridSize) {
                     ply::Vector3f(scale)
                 );
 
-                InstanceData[instId++] = matrix;
+                InstanceData instance;
+                instance.Matrix = matrix;
+                instance.TextureInd = static_cast<float>(tex_distr(gen));
+
+                instanceData[instId++] = instance;
             }
         }
     }
 
-    buffer.update(InstanceData);
+    buffer.update(instanceData);
 }
 
 ply::Matrix4f createProjViewMatrix(float time) {
@@ -283,6 +294,7 @@ int main(int argc, char* argv[]) {
             .addInputLayout(3, 1, 4, ply::Type::Float32, true)
             .addInputLayout(4, 1, 4, ply::Type::Float32, true)
             .addInputLayout(5, 1, 4, ply::Type::Float32, true)
+            .addInputLayout(6, 1, 1, ply::Type::Float32, true) // Tex index
             .addVariable(
                 "g_Texture",
                 ply::Shader::Pixel,
@@ -314,7 +326,7 @@ int main(int argc, char* argv[]) {
         device.buffer()
             .bind(ply::ResourceBind::VertexBuffer)
             .usage(ply::ResourceUsage::Default)
-            .size(MAX_INSTANCES * sizeof(ply::Matrix4f))
+            .size(MAX_INSTANCES * sizeof(InstanceData))
             .create();
     populateInstanceBuffer(instanceBuffer, GRID_SIZE);
 
@@ -322,9 +334,24 @@ int main(int argc, char* argv[]) {
     auto binding = pipeline.createResourceBinding();
 
     // Load image texture
-    ply::Image image("examples/assets/DGLogo.png");
-    auto texture = device.texture(image, 5);
+    ply::Image image1("examples/assets/DGLogo1.png");
+    ply::Image image2("examples/assets/DGLogo2.png");
+    ply::Image image3("examples/assets/DGLogo3.png");
+    // clang-format off
+    auto texture = device.texture()
+        .from(image1)
+        .from(image2)
+        .from(image3)
+        .mips(5)
+        .create();
+    // clang-format on
     binding.set(ply::Shader::Pixel, "g_Texture", texture);
+
+    // Create framebuffer
+    auto windowSize = window.getSize();
+    ply::Framebuffer framebuffer = device.framebuffer();
+    framebuffer.attachColor(windowSize);
+    framebuffer.attachDepth(windowSize);
 
     window.addListener<ply::Event::MouseButton>(
         [](const ply::Event::MouseButton& event) {
@@ -395,7 +422,7 @@ int main(int argc, char* argv[]) {
             buffer.unmap();
         }
 
-        device.context.bindBackBuffer();
+        device.context.setRenderTarget(ply::Framebuffer::Default);
         device.context.clear(ply::ClearFlag::Color | ply::ClearFlag::Depth);
 
         device.context.setPipeline(pipeline);

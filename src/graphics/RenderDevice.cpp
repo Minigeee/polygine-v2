@@ -165,33 +165,55 @@ Texture RenderDevice::texture(const Image& image, uint32_t mips) {
 }
 
 ///////////////////////////////////////////////////////////
+Framebuffer RenderDevice::framebuffer() {
+    return Framebuffer(this);
+}
+
+///////////////////////////////////////////////////////////
+priv::DeviceImpl* RenderDevice::getImpl() const {
+    return m_device;
+}
+
+///////////////////////////////////////////////////////////
 RenderContext::RenderContext() :
     m_device(nullptr),
     m_clearColor{0.0f, 0.0f, 0.0f, 1.0f},
     m_clearDepth(1.0f),
-    m_clearStencil(0) {}
-
-///////////////////////////////////////////////////////////
-void RenderContext::bindBackBuffer() {
-    auto* pRTV = m_device->m_swapChain->GetCurrentBackBufferRTV();
-    auto* pDSV = m_device->m_swapChain->GetDepthBufferDSV();
-    m_device->m_deviceContext->SetRenderTargets(
-        1,
-        &pRTV,
-        pDSV,
-        RESOURCE_STATE_TRANSITION_MODE_TRANSITION
-    );
-}
+    m_clearStencil(0),
+    m_currentFramebuffer(nullptr) {}
 
 ///////////////////////////////////////////////////////////
 void RenderContext::clear(ClearFlag flags) {
+    CHECK_F(
+        m_currentFramebuffer != nullptr,
+        "must set a valid framebuffer before clearing "
+        "RenderContext::setRenderTarget."
+    );
+
+    bool isDefaultFramebuffer = m_currentFramebuffer == &Framebuffer::Default;
+
     if ((bool)(flags & ClearFlag::Color)) {
-        auto* pRTV = m_device->m_swapChain->GetCurrentBackBufferRTV();
-        m_device->m_deviceContext->ClearRenderTarget(
-            pRTV,
-            &m_clearColor,
-            RESOURCE_STATE_TRANSITION_MODE_TRANSITION
-        );
+        if (isDefaultFramebuffer) {
+            auto* pRTV = m_device->m_swapChain->GetCurrentBackBufferRTV();
+            m_device->m_deviceContext->ClearRenderTarget(
+                pRTV,
+                &m_clearColor,
+                RESOURCE_STATE_TRANSITION_MODE_TRANSITION
+            );
+        } else {
+            // If custom framebuffer, clear all color attachments
+            for (size_t i = 0; i < m_currentFramebuffer->getNumColorTextures(); ++i) {
+                auto* pRTV = static_cast<ITextureView*>(
+                    m_currentFramebuffer->m_colorTextureViews[i]
+                );
+
+                m_device->m_deviceContext->ClearRenderTarget(
+                    pRTV,
+                    &m_clearColor,
+                    RESOURCE_STATE_TRANSITION_MODE_TRANSITION
+                );
+            }
+        }
     }
 
     auto dsMask = ClearFlag::Depth | ClearFlag::Stencil;
@@ -199,6 +221,11 @@ void RenderContext::clear(ClearFlag flags) {
         auto dsFlags = (uint8_t)dsMask >> 1;
 
         auto* pDSV = m_device->m_swapChain->GetDepthBufferDSV();
+        if (!isDefaultFramebuffer) {
+            // If custom framebuffer, use the depth stencil view from the framebuffer
+            pDSV = static_cast<ITextureView*>(m_currentFramebuffer->m_depthTextureView);
+        }
+        
         m_device->m_deviceContext->ClearDepthStencil(
             pDSV,
             static_cast<CLEAR_DEPTH_STENCIL_FLAGS>(dsFlags),
@@ -264,6 +291,12 @@ void RenderContext::setResourceBinding(const ResourceBinding& binding) {
 }
 
 ///////////////////////////////////////////////////////////
+void RenderContext::setRenderTarget(Framebuffer& framebuffer) {
+    framebuffer.bind(m_device);
+    m_currentFramebuffer = &framebuffer;
+}
+
+///////////////////////////////////////////////////////////
 void RenderContext::draw(uint32_t numVertices, uint32_t instances) {
     DrawAttribs drawAttrs;
     drawAttrs.NumVertices = numVertices;
@@ -273,7 +306,11 @@ void RenderContext::draw(uint32_t numVertices, uint32_t instances) {
 }
 
 ///////////////////////////////////////////////////////////
-void RenderContext::drawIndexed(uint32_t numVertices, uint32_t instances, Type dtype) {
+void RenderContext::drawIndexed(
+    uint32_t numVertices,
+    uint32_t instances,
+    Type dtype
+) {
     DrawIndexedAttribs drawAttrs;
     drawAttrs.NumIndices = numVertices;
     drawAttrs.NumInstances = instances;
@@ -285,6 +322,7 @@ void RenderContext::drawIndexed(uint32_t numVertices, uint32_t instances, Type d
 ///////////////////////////////////////////////////////////
 void RenderContext::present(uint32_t sync) {
     m_device->m_swapChain->Present(sync);
+    m_currentFramebuffer = nullptr;
 }
 
 } // namespace ply

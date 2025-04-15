@@ -139,6 +139,12 @@ TextureBuilder& TextureBuilder::data(const void* data, uint32_t stride) {
     subresData.pData = data;
     subresData.Stride = stride;
     m_desc->Data.push_back(subresData);
+
+    // Track texture array size
+    if (m_desc->Data.size() > 0) {
+        m_desc->ArraySize = m_desc->Data.size();
+    }
+
     return *this;
 }
 
@@ -170,6 +176,17 @@ TextureBuilder& TextureBuilder::from(const Image& image) {
 void TextureBuilder::setUpData() {
     uint32_t numTextures = m_desc->Data.size();
     CHECK_F(numTextures > 0, "no data provided");
+
+    // Check if texture type needs to be changed to array
+    if (m_desc->ArraySize > 1) {
+        auto type = m_desc->Type;
+        if (type == RESOURCE_DIM_TEX_2D)
+            m_desc->Type = RESOURCE_DIM_TEX_2D_ARRAY;
+        else if (type == RESOURCE_DIM_TEX_CUBE)
+            m_desc->Type = RESOURCE_DIM_TEX_CUBE_ARRAY;
+        else if (type == RESOURCE_DIM_TEX_1D)
+            m_desc->Type = RESOURCE_DIM_TEX_1D_ARRAY;
+    }
 
     // Determine how many levels
     uint32_t mips = m_desc->MipLevels;

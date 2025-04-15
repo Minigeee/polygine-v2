@@ -65,6 +65,8 @@ protected:
 } // namespace ply
 
 #define GPU_RESOURCE_NO_MOVE(X)                                  \
+    X() :                                                        \
+        GpuResource() {}                                         \
     X(priv::DeviceImpl* device, void* resource, Handle handle) : \
         GpuResource(device, resource, handle) {}
 
