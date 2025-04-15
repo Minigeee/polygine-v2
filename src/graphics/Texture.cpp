@@ -117,6 +117,15 @@ TextureBuilder& TextureBuilder::format(TextureFormat format) {
 }
 
 ///////////////////////////////////////////////////////////
+TextureBuilder& TextureBuilder::mips(uint32_t mips) {
+    m_desc->MipLevels = mips;
+    if (mips != 1) {
+        m_desc->MiscFlags |= MISC_TEXTURE_FLAG_GENERATE_MIPS;
+    }
+    return *this;
+}
+
+///////////////////////////////////////////////////////////
 TextureBuilder& TextureBuilder::size(size_t w, size_t h, size_t d) {
     m_desc->Width = w;
     m_desc->Height = h;
@@ -158,7 +167,42 @@ TextureBuilder& TextureBuilder::from(const Image& image) {
 }
 
 ///////////////////////////////////////////////////////////
+void TextureBuilder::setUpData() {
+    uint32_t numTextures = m_desc->Data.size();
+    CHECK_F(numTextures > 0, "no data provided");
+
+    // Determine how many levels
+    uint32_t mips = m_desc->MipLevels;
+    if (mips == 0)
+        mips =
+            std::round(std::log2(std::min(m_desc->Width, m_desc->Height))) + 1;
+
+    if (mips == 1)
+        return;
+
+    std::vector<TextureSubResData> newData;
+    newData.reserve(numTextures * mips);
+
+    // Calculate space needed
+    for (uint32_t t = 0; t < numTextures; ++t) {
+        newData.push_back(m_desc->Data[t]);
+
+        for (uint32_t lvl = 1; lvl < mips; ++lvl) {
+            TextureSubResData data;
+            data.pData = m_desc->Data[t].pData;
+            newData.push_back(data);
+        }
+    }
+
+    m_desc->Data = std::move(newData);
+}
+
+///////////////////////////////////////////////////////////
 Texture TextureBuilder::create() {
+    // Set up data for mip map generation
+    if (m_desc->Data.size() > 0)
+        setUpData();
+
     // Create data
     TextureData data;
     data.NumSubresources = m_desc->Data.size();
@@ -172,6 +216,13 @@ Texture TextureBuilder::create() {
         data.NumSubresources > 0 ? &data : nullptr,
         &texture
     );
+
+    // Generate mip maps
+    if (m_desc->MipLevels != 1) {
+        m_device->m_deviceContext->GenerateMips(
+            texture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE)
+        );
+    }
 
     // Register buffer
     Handle handle = m_device->m_textures.push(texture);

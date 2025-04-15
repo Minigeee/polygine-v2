@@ -13,7 +13,7 @@ namespace priv {
 class Texture : public GpuResource {
 public:
     GPU_RESOURCE(Texture);
-    
+
     ~Texture();
 };
 
@@ -44,12 +44,16 @@ public:
 
     TextureBuilder& size(size_t width, size_t height, size_t depth = 1);
 
-    TextureBuilder&
-    data(const void* data, uint32_t stride = 0);
+    TextureBuilder& mips(uint32_t mips);
+
+    TextureBuilder& data(const void* data, uint32_t stride = 0);
 
     TextureBuilder& from(const Image& image);
 
     Texture create();
+
+private:
+    void setUpData();
 
 private:
     priv::TextureDesc* m_desc;

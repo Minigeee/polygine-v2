@@ -308,7 +308,7 @@ int main(int argc, char* argv[]) {
     auto indexBuffer = createIndexBuffer(device);
 
     // Instance buffer
-    constexpr size_t GRID_SIZE = 10;
+    constexpr size_t GRID_SIZE = 5;
     constexpr size_t MAX_INSTANCES = GRID_SIZE * GRID_SIZE * GRID_SIZE;
     auto instanceBuffer =
         device.buffer()
@@ -323,7 +323,7 @@ int main(int argc, char* argv[]) {
 
     // Load image texture
     ply::Image image("examples/assets/DGLogo.png");
-    auto texture = device.texture(image);
+    auto texture = device.texture(image, 5);
     binding.set(ply::Shader::Pixel, "g_Texture", texture);
 
     window.addListener<ply::Event::MouseButton>(

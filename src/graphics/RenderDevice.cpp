@@ -160,8 +160,8 @@ TextureBuilder RenderDevice::texture() {
 }
 
 ///////////////////////////////////////////////////////////
-Texture RenderDevice::texture(const Image& image) {
-    return TextureBuilder(this).from(image).create();
+Texture RenderDevice::texture(const Image& image, uint32_t mips) {
+    return TextureBuilder(this).from(image).mips(mips).create();
 }
 
 ///////////////////////////////////////////////////////////

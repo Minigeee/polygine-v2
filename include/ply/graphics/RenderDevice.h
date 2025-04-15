@@ -241,10 +241,11 @@ public:
     /// \brief Create a texture from an image
     ///
     /// \param image The image to create the texture from
+    /// \param mips Number of mipmap levels to generate (use 0 to generate full mip chain)
     /// \return A texture
     ///
     /////////////////////////////////////////////////////////////
-    Texture texture(const Image& image);
+    Texture texture(const Image& image, uint32_t mips = 1);
 
     RenderContext context; //!< Render context
 
