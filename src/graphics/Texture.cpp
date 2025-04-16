@@ -4,50 +4,161 @@
 #include <ply/core/PoolAllocator.h>
 #include <ply/graphics/RenderDevice.h>
 
+#define TEXTURE(x) static_cast<Diligent::ITexture*>(x)
+
 namespace ply {
 
-///////////////////////////////////////////////////////////
-TEXTURE_FORMAT getInternalFormat(uint32_t c, Type dtype) {
-    if (dtype == Type::Uint8 || dtype == Type::Int8) {
-        if (c == 1)
-            return TEX_FORMAT_R8_UNORM;
-        else if (c == 2)
-            return TEX_FORMAT_RG8_UNORM;
-        else if (c == 3 || c == 4)
-            return TEX_FORMAT_RGBA8_UNORM;
-    } else if (dtype == Type::Uint16 || dtype == Type::Int16) {
-        if (c == 1)
-            return TEX_FORMAT_R16_UNORM;
-        else if (c == 2)
-            return TEX_FORMAT_RG16_UNORM;
-        else if (c == 3 || c == 4)
-            return TEX_FORMAT_RGBA16_UNORM;
-    } else if (dtype == Type::Float32) {
-        if (c == 1)
-            return TEX_FORMAT_R32_FLOAT;
-        else if (c == 2)
-            return TEX_FORMAT_RG32_FLOAT;
-        else if (c == 3)
-            return TEX_FORMAT_RGB32_FLOAT;
-        else if (c == 4)
-            return TEX_FORMAT_RGBA32_FLOAT;
-    } else if (dtype == Type::Float16) {
-        if (c == 1)
-            return TEX_FORMAT_R16_FLOAT;
-        else if (c == 2)
-            return TEX_FORMAT_RG16_FLOAT;
-        else if (c == 3 || c == 4)
-            return TEX_FORMAT_RGBA16_FLOAT;
+namespace priv {
+
+    ///////////////////////////////////////////////////////////
+    TEXTURE_FORMAT getInternalFormat(uint32_t c, Type dtype) {
+        if (dtype == Type::Uint8 || dtype == Type::Int8) {
+            if (c == 1)
+                return TEX_FORMAT_R8_UNORM;
+            else if (c == 2)
+                return TEX_FORMAT_RG8_UNORM;
+            else if (c == 3 || c == 4)
+                return TEX_FORMAT_RGBA8_UNORM;
+        } else if (dtype == Type::Uint16 || dtype == Type::Int16) {
+            if (c == 1)
+                return TEX_FORMAT_R16_UNORM;
+            else if (c == 2)
+                return TEX_FORMAT_RG16_UNORM;
+            else if (c == 3 || c == 4)
+                return TEX_FORMAT_RGBA16_UNORM;
+        } else if (dtype == Type::Float32) {
+            if (c == 1)
+                return TEX_FORMAT_R32_FLOAT;
+            else if (c == 2)
+                return TEX_FORMAT_RG32_FLOAT;
+            else if (c == 3)
+                return TEX_FORMAT_RGB32_FLOAT;
+            else if (c == 4)
+                return TEX_FORMAT_RGBA32_FLOAT;
+        } else if (dtype == Type::Float16) {
+            if (c == 1)
+                return TEX_FORMAT_R16_FLOAT;
+            else if (c == 2)
+                return TEX_FORMAT_RG16_FLOAT;
+            else if (c == 3 || c == 4)
+                return TEX_FORMAT_RGBA16_FLOAT;
+        }
+
+        return TEX_FORMAT_UNKNOWN;
     }
 
-    return TEX_FORMAT_UNKNOWN;
-}
+} // namespace priv
 
 ///////////////////////////////////////////////////////////
 Texture::~Texture() {
     if (m_device && m_resource) {
         m_device->m_textures.remove(m_handle);
     }
+}
+
+///////////////////////////////////////////////////////////
+void Texture::update(
+    const void* data,
+    uint32_t stride,
+    const Vector2u& pos,
+    const Vector2u& size,
+    uint32_t slice,
+    uint32_t mip
+) {
+    CHECK_F(m_device != nullptr, "texture update requires a render device");
+
+    Box UpdateBox;
+    UpdateBox.MinX = pos.x;
+    UpdateBox.MinY = pos.y;
+    UpdateBox.MaxX = UpdateBox.MinX + size.x;
+    UpdateBox.MaxY = UpdateBox.MinY + size.y;
+
+    TextureSubResData SubresData;
+    SubresData.Stride = stride;
+    SubresData.pData = data;
+    m_device->m_deviceContext->UpdateTexture(
+        TEXTURE(m_resource),
+        mip,
+        slice,
+        UpdateBox,
+        SubresData,
+        RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+        RESOURCE_STATE_TRANSITION_MODE_TRANSITION
+    );
+}
+
+///////////////////////////////////////////////////////////
+void Texture::update(
+    const Image& image,
+    const Vector2u& pos,
+    uint32_t slice,
+    uint32_t mip
+) {
+    // Calculate stride
+    uint32_t typeSize = 1;
+    Type dtype = image.getDataType();
+    if (dtype == Type::Uint16)
+        typeSize = 2;
+    else if (dtype == Type::Float32)
+        typeSize = 4;
+    uint32_t stride = image.getWidth() * image.getNumChannels() * typeSize;
+
+    update(
+        image.getData(),
+        stride,
+        pos,
+        {image.getWidth(), image.getHeight()},
+        slice,
+        mip
+    );
+}
+
+///////////////////////////////////////////////////////////
+TextureFormat Texture::getFormat() const {
+    const auto& desc = TEXTURE(m_resource)->GetDesc();
+    return priv::convertTextureFormat(desc.Format);
+}
+
+///////////////////////////////////////////////////////////
+TextureType Texture::getType() const {
+    const auto& desc = TEXTURE(m_resource)->GetDesc();
+
+    switch (desc.Type) {
+    case RESOURCE_DIM_TEX_1D:
+        return TextureType::Tex1D;
+    case RESOURCE_DIM_TEX_2D:
+        return TextureType::Tex2D;
+    case RESOURCE_DIM_TEX_3D:
+        return TextureType::Tex3D;
+    case RESOURCE_DIM_TEX_CUBE:
+        return TextureType::TexCube;
+    case RESOURCE_DIM_TEX_1D_ARRAY:
+        return TextureType::Tex1DArray;
+    case RESOURCE_DIM_TEX_2D_ARRAY:
+        return TextureType::Tex2DArray;
+    case RESOURCE_DIM_TEX_CUBE_ARRAY:
+        return TextureType::TexCubeArray;
+    default:
+        return TextureType::Undefined;
+    }
+}
+
+///////////////////////////////////////////////////////////
+Vector3u Texture::getSize() const {
+    const auto& desc = TEXTURE(m_resource)->GetDesc();
+
+    Vector3u size;
+    size.x = desc.Width;
+    size.y = desc.Height;
+    size.z = desc.Depth;
+
+    return size;
+}
+
+///////////////////////////////////////////////////////////
+uint32_t Texture::getMips() const {
+    const auto& desc = TEXTURE(m_resource)->GetDesc();
+    return desc.MipLevels;
 }
 
 ///////////////////////////////////////////////////////////
@@ -158,7 +269,7 @@ TextureBuilder& TextureBuilder::from(const Image& image) {
     m_desc->Height = image.getHeight();
 
     // Get format
-    auto format = getInternalFormat(image.getNumChannels(), dtype);
+    auto format = priv::getInternalFormat(image.getNumChannels(), dtype);
     m_desc->Format = format;
 
     // Calculate stride

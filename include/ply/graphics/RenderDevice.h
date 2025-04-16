@@ -168,6 +168,34 @@ private:
 ///////////////////////////////////////////////////////////
 /// \brief Class for interfacing with gpu
 ///
+/// The RenderDevice class is the main interface for interacting with the GPU.
+/// It provides methods for creating and managing GPU resources such as buffers,
+/// textures, shaders, pipelines, and framebuffers. RenderDevice also manages
+/// the rendering context and is responsible for initializing the graphics
+/// backend and connecting to a window.
+///
+/// Resource creation is performed using builder objects, which provide a fluent
+/// interface for configuring and constructing resources. See the examples below
+/// for typical usage.
+///
+/// Usage example (creating a vertex buffer):
+/// \code
+/// ply::Buffer vertexBuffer = device.buffer()
+///     .bind(ply::ResourceBind::VertexBuffer)
+///     .usage(ply::ResourceUsage::Immutable)
+///     .size(sizeof(vertices))
+///     .data(vertices, sizeof(vertices))
+///     .create();
+/// \endcode
+///
+/// Usage example (creating a texture from an image):
+/// \code
+/// ply::Texture texture = device.texture()
+///     .from(image)
+///     .mips(4)
+///     .create();
+/// \endcode
+///
 ///////////////////////////////////////////////////////////
 class RenderDevice {
     friend GpuResource;
@@ -217,53 +245,105 @@ public:
     /////////////////////////////////////////////////////////////
     /// \brief Create a shader
     ///
-    /// \return A shader builder object
+    /// Returns a ShaderBuilder for configuring and creating a shader.
     ///
+    /// Usage example:
+    /// \code
+    /// ply::Shader shader = device.shader()
+    ///     .type(ply::Shader::Vertex)
+    ///     .file("shader.vsh")
+    ///     .load();
+    /// \endcode
+    ///
+    /// \return A shader builder object
     /////////////////////////////////////////////////////////////
     ShaderBuilder shader();
 
     /////////////////////////////////////////////////////////////
     /// \brief Create a pipeline
     ///
-    /// \return A pipeline builder object
+    /// Returns a PipelineBuilder for configuring and creating a pipeline.
     ///
+    /// Usage example:
+    /// \code
+    /// ply::Pipeline pipeline = device.pipeline()
+    ///     .shader(&vertexShader)
+    ///     .shader(&pixelShader)
+    ///     .addInputLayout(0, 0, 3, ply::Type::Float32)
+    ///     .targetFormat(framebuffer)
+    ///     .create();
+    /// \endcode
+    ///
+    /// \return A pipeline builder object
     /////////////////////////////////////////////////////////////
     PipelineBuilder pipeline();
 
     /////////////////////////////////////////////////////////////
     /// \brief Create a buffer
     ///
-    /// \return A buffer builder object
+    /// Returns a BufferBuilder for configuring and creating a buffer.
     ///
+    /// Usage example:
+    /// \code
+    /// ply::Buffer buffer = device.buffer()
+    ///     .bind(ply::ResourceBind::VertexBuffer)
+    ///     .usage(ply::ResourceUsage::Dynamic)
+    ///     .size(1024)
+    ///     .create();
+    /// \endcode
+    ///
+    /// \return A buffer builder object
     /////////////////////////////////////////////////////////////
     BufferBuilder buffer();
 
     /////////////////////////////////////////////////////////////
     /// \brief Create a texture
     ///
-    /// \return A texture builder object
+    /// Returns a TextureBuilder for configuring and creating a texture.
     ///
+    /// Usage example:
+    /// \code
+    /// ply::Texture texture = device.texture()
+    ///     .size(256, 256)
+    ///     .format(ply::TextureFormat::Rgba8)
+    ///     .mips(1)
+    ///     .create();
+    /// \endcode
+    ///
+    /// \return A texture builder object
     /////////////////////////////////////////////////////////////
     TextureBuilder texture();
 
     /////////////////////////////////////////////////////////////
     /// \brief Create a texture from an image
     ///
-    /// \param image The image to create the texture from
-    /// \param mips Number of mipmap levels to generate (use 0 to generate full
-    /// mip chain)
-    /// \return A texture
+    /// Creates a texture directly from an Image object, optionally generating
+    /// a specified number of mipmap levels.
     ///
+    /// Usage example:
+    /// \code
+    /// ply::Texture texture = device.texture(image, 0); // 0 = full mip chain
+    /// \endcode
+    ///
+    /// \param image The image to create the texture from
+    /// \param mips Number of mipmap levels to generate (0 for full mip chain)
+    /// \return A texture
     /////////////////////////////////////////////////////////////
     Texture texture(const Image& image, uint32_t mips = 1);
 
     /////////////////////////////////////////////////////////////
     /// \brief Create a framebuffer
     ///
+    /// Returns a Framebuffer object for use as a render target.
+    ///
+    /// Usage example:
+    /// \code
+    /// ply::Framebuffer framebuffer = device.framebuffer();
+    /// framebuffer.attachColor({width, height});
+    /// framebuffer.attachDepth({width, height});
+    /// \endcode
+    ///
     /// \return A framebuffer object
-    ///
-    /// \note This function returns a framebuffer, not a builder object
-    ///
     /////////////////////////////////////////////////////////////
     Framebuffer framebuffer();
 

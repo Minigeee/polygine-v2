@@ -13,6 +13,7 @@ namespace ply {
 class RenderDevice;
 class Buffer;
 class Texture;
+class Framebuffer;
 
 namespace priv {
     struct PipelineDesc;
@@ -67,44 +68,32 @@ public:
     GPU_RESOURCE(ResourceBinding);
 
     ///////////////////////////////////////////////////////////
-    /// \brief Destructor
+    /// \brief Destructor. Releases the resource binding.
     ///
     ///////////////////////////////////////////////////////////
     ~ResourceBinding();
 
     ///////////////////////////////////////////////////////////
-    /// \brief Set a mutable or dynamic variable
-    ///
-    /// Mutable resources can only be set once per resource binding.
+    /// \brief Set a mutable or dynamic buffer variable for a shader stage.
+    /// \param stages Shader stages to which the variable belongs.
+    /// \param name Name of the variable.
+    /// \param resource Buffer object to bind to the variable.
+    /// \note Mutable resources can only be set once per resource binding.
     /// Dynamic resources can be set multiple times.
     ///
-    /// \param stages - shader stages to which the variable belongs
-    /// \param name - name of the variable
-    /// \param resource - buffer object to bind to the variable
-    ///
     ///////////////////////////////////////////////////////////
-    void set(
-        Shader::Type stages,
-        const char* name,
-        const Buffer& resource
-    );
+    void set(Shader::Type stages, const char* name, const Buffer& resource);
 
     ///////////////////////////////////////////////////////////
-    /// \brief Set a mutable or dynamic variable
-    ///
-    /// Mutable resources can only be set once per resource binding.
+    /// \brief Set a mutable or dynamic texture variable for a shader stage.
+    /// \param stages Shader stages to which the variable belongs.
+    /// \param name Name of the variable.
+    /// \param resource Texture object to bind to the variable.
+    /// \note Mutable resources can only be set once per resource binding.
     /// Dynamic resources can be set multiple times.
     ///
-    /// \param stages - shader stages to which the variable belongs
-    /// \param name - name of the variable
-    /// \param resource - texture object to bind to the variable
-    ///
     ///////////////////////////////////////////////////////////
-    void set(
-        Shader::Type stages,
-        const char* name,
-        const Texture& resource
-    );
+    void set(Shader::Type stages, const char* name, const Texture& resource);
 };
 
 ///////////////////////////////////////////////////////////
@@ -117,18 +106,16 @@ public:
     GPU_RESOURCE(Pipeline);
 
     ///////////////////////////////////////////////////////////
-    /// \brief Destructor
+    /// \brief Destructor. Releases the pipeline resource.
     ///
     ///////////////////////////////////////////////////////////
     ~Pipeline();
 
     ///////////////////////////////////////////////////////////
-    /// \brief Set a static variable
-    ///
-    /// \param stages - shader stages to which the variable belongs
-    /// \param name - name of the variable
-    /// \param resource - buffer object to bind to the variable
-    ///
+    /// \brief Set a static buffer variable for a shader stage.
+    /// \param stages Shader stages to which the variable belongs.
+    /// \param name Name of the variable.
+    /// \param resource Buffer object to bind to the variable.
     /// \remarks This method is used to set static variables, which are bound
     /// once and cannot be changed later.
     ///
@@ -140,12 +127,10 @@ public:
     );
 
     ///////////////////////////////////////////////////////////
-    /// \brief Set a static variable
-    ///
-    /// \param stages - shader stages to which the variable belongs
-    /// \param name - name of the variable
-    /// \param resource - texture object to bind to the variable
-    ///
+    /// \brief Set a static texture variable for a shader stage.
+    /// \param stages Shader stages to which the variable belongs.
+    /// \param name Name of the variable.
+    /// \param resource Texture object to bind to the variable.
     /// \remarks This method is used to set static variables, which are bound
     /// once and cannot be changed later.
     ///
@@ -156,6 +141,16 @@ public:
         const Texture& resource
     );
 
+    ///////////////////////////////////////////////////////////
+    /// \brief Create a resource binding object for this pipeline.
+    /// \return A new ResourceBinding instance.
+    ///
+    /// Resource binding objects are needed to set shader resources.
+    /// Bindings should contain a resource for every mutable and dynamic
+    /// variable in the pipeline. Static variables are set directly on the
+    /// pipeline object and do not require a binding.
+    ///
+    ///////////////////////////////////////////////////////////
     ResourceBinding createResourceBinding();
 };
 
@@ -165,10 +160,21 @@ public:
 ///////////////////////////////////////////////////////////
 class PipelineBuilder : public GpuResourceBuilder {
 public:
+    ///////////////////////////////////////////////////////////
+    /// \brief Construct a pipeline builder for a render device.
+    /// \param device The render device pointer.
+    /// \param type Pipeline type (Graphics or Compute).
+    ///
+    ///////////////////////////////////////////////////////////
     PipelineBuilder(
         RenderDevice* device,
         PipelineType type = PipelineType::Graphics
     );
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Destructor. Cleans up builder resources.
+    ///
+    ///////////////////////////////////////////////////////////
     ~PipelineBuilder();
 
     PipelineBuilder(const PipelineBuilder&) = delete;
@@ -176,24 +182,71 @@ public:
     PipelineBuilder(PipelineBuilder&&) noexcept;
     PipelineBuilder& operator=(PipelineBuilder&&) noexcept;
 
-    PipelineBuilder& addTargetFormat(TextureFormat format);
+    ///////////////////////////////////////////////////////////
+    /// \brief Set the framebuffer target format for the pipeline.
+    /// \param target The framebuffer to use as the render target.
+    ///
+    ///////////////////////////////////////////////////////////
+    PipelineBuilder& targetFormat(const Framebuffer& target);
 
-    PipelineBuilder& depthFormat(TextureFormat format);
-
+    ///////////////////////////////////////////////////////////
+    /// \brief Set the primitive topology for the pipeline.
+    /// \param topology Primitive topology (e.g., TriangleList).
+    ///
+    ///////////////////////////////////////////////////////////
     PipelineBuilder& topology(PrimitiveTopology topology);
 
+    ///////////////////////////////////////////////////////////
+    /// \brief Set the fill mode for rasterization.
+    /// \param fillMode Fill mode (e.g., Solid, Wireframe).
+    ///
+    ///////////////////////////////////////////////////////////
     PipelineBuilder& fill(FillMode fillMode);
 
+    ///////////////////////////////////////////////////////////
+    /// \brief Set the cull mode for rasterization.
+    /// \param cullMode Cull mode (e.g., Back, Front).
+    ///
+    ///////////////////////////////////////////////////////////
     PipelineBuilder& cull(CullMode cullMode);
 
+    ///////////////////////////////////////////////////////////
+    /// \brief Enable or disable depth testing.
+    /// \param enabled True to enable depth testing.
+    ///
+    ///////////////////////////////////////////////////////////
     PipelineBuilder& depth(bool enabled);
 
+    ///////////////////////////////////////////////////////////
+    /// \brief Enable or disable depth writing.
+    /// \param enabled True to enable depth writing.
+    ///
+    ///////////////////////////////////////////////////////////
     PipelineBuilder& depthWrite(bool enabled);
 
+    ///////////////////////////////////////////////////////////
+    /// \brief Enable or disable scissor testing.
+    /// \param enabled True to enable scissor test.
+    ///
+    ///////////////////////////////////////////////////////////
     PipelineBuilder& scissor(bool enabled);
 
+    ///////////////////////////////////////////////////////////
+    /// \brief Enable or disable blending for a render target.
+    /// \param enabled True to enable blending.
+    /// \param index Render target index (default 0).
+    ///
+    ///////////////////////////////////////////////////////////
     PipelineBuilder& blend(bool enabled, uint32_t index = 0);
 
+    ///////////////////////////////////////////////////////////
+    /// \brief Set blend factors and operation for a render target.
+    /// \param src Source blend factor.
+    /// \param dst Destination blend factor.
+    /// \param operation Blend operation.
+    /// \param index Render target index (default 0).
+    ///
+    ///////////////////////////////////////////////////////////
     PipelineBuilder& blendFactors(
         BlendFactor src,
         BlendFactor dst,
@@ -201,6 +254,14 @@ public:
         uint32_t index = 0
     );
 
+    ///////////////////////////////////////////////////////////
+    /// \brief Set alpha blend factors and operation for a render target.
+    /// \param srcAlpha Source alpha blend factor.
+    /// \param dstAlpha Destination alpha blend factor.
+    /// \param operation Blend operation.
+    /// \param index Render target index (default 0).
+    ///
+    ///////////////////////////////////////////////////////////
     PipelineBuilder& blendFactorsAlpha(
         BlendFactor srcAlpha,
         BlendFactor dstAlpha,
@@ -208,6 +269,16 @@ public:
         uint32_t index = 0
     );
 
+    ///////////////////////////////////////////////////////////
+    /// \brief Add an input layout element for vertex attributes.
+    /// \param index Input index.
+    /// \param slot Buffer slot.
+    /// \param components Number of components.
+    /// \param type Data type.
+    /// \param instance True if per-instance data (default false).
+    /// \param normalized True if data should be normalized (default false).
+    ///
+    ///////////////////////////////////////////////////////////
     PipelineBuilder& addInputLayout(
         uint32_t index,
         uint32_t slot,
@@ -217,14 +288,34 @@ public:
         bool normalized = false
     );
 
+    ///////////////////////////////////////////////////////////
+    /// \brief Attach a shader to the pipeline.
+    /// \param shader Pointer to the shader object.
+    ///
+    ///////////////////////////////////////////////////////////
     PipelineBuilder& shader(Shader* shader);
 
+    ///////////////////////////////////////////////////////////
+    /// \brief Add a shader variable to the pipeline.
+    /// \param name Name of the variable.
+    /// \param stages Shader stages to which the variable belongs.
+    /// \param type Resource binding type (Static, Mutable, Dynamic).
+    ///
+    ///////////////////////////////////////////////////////////
     PipelineBuilder& addVariable(
         const std::string& name,
         Shader::Type stages,
         ShaderResourceType type
     );
 
+    ///////////////////////////////////////////////////////////
+    /// \brief Add a sampler to the pipeline.
+    /// \param name Name of the sampler.
+    /// \param stages Shader stages to which the sampler belongs.
+    /// \param filter Texture filter type (default Linear).
+    /// \param address Texture address mode (default Clamp).
+    ///
+    ///////////////////////////////////////////////////////////
     PipelineBuilder& addSampler(
         const std::string& name,
         Shader::Type stages,
@@ -232,6 +323,11 @@ public:
         TextureAddress address = TextureAddress::Clamp
     );
 
+    ///////////////////////////////////////////////////////////
+    /// \brief Create the pipeline resource with the specified parameters.
+    /// \return The created Pipeline object.
+    ///
+    ///////////////////////////////////////////////////////////
     Pipeline create();
 
 private:

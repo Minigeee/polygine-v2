@@ -73,6 +73,12 @@ namespace priv {
     ///
     ///////////////////////////////////////////////////////////
     TEXTURE_FORMAT convertTextureFormat(TextureFormat format);
+    
+    ///////////////////////////////////////////////////////////
+    /// \brief Convert Diligent texture format to polygine texture format
+    ///
+    ///////////////////////////////////////////////////////////
+    TextureFormat convertTextureFormat(TEXTURE_FORMAT format);
 
 } // namespace priv
 

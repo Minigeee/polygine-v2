@@ -78,6 +78,11 @@ void Buffer::unmap() {
 }
 
 ///////////////////////////////////////////////////////////
+uint32_t Buffer::getSize() const {
+    return BUFFER(m_resource)->GetDesc().Size;
+}
+
+///////////////////////////////////////////////////////////
 BufferBuilder::BufferBuilder(RenderDevice* device) :
     BufferBuilder(device->m_device) {}
 

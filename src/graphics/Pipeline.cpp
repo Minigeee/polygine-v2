@@ -6,6 +6,7 @@
 
 #define PIPELINE(x) static_cast<Diligent::IPipelineState*>(x)
 #define RESOURCE_BINDING(x) static_cast<Diligent::IShaderResourceBinding*>(x)
+#define TEXTURE(x) static_cast<Diligent::ITexture*>(x)
 
 namespace ply {
 
@@ -173,20 +174,34 @@ PipelineBuilder& PipelineBuilder::operator=(PipelineBuilder&& other) noexcept {
 }
 
 ///////////////////////////////////////////////////////////
-PipelineBuilder& PipelineBuilder::addTargetFormat(TextureFormat format) {
+PipelineBuilder& PipelineBuilder::targetFormat(const Framebuffer& target) {
     auto& graphics = m_desc->GraphicsPipeline;
-    if (m_numTargets < MAX_RENDER_TARGETS) { // Maximum of 8 render targets
-        graphics.RTVFormats[m_numTargets] = priv::convertTextureFormat(format);
-        m_numTargets++;
-        graphics.NumRenderTargets = m_numTargets;
-    }
-    return *this;
-}
 
-///////////////////////////////////////////////////////////
-PipelineBuilder& PipelineBuilder::depthFormat(TextureFormat format) {
-    auto& graphics = m_desc->GraphicsPipeline;
-    graphics.DSVFormat = priv::convertTextureFormat(format);
+    m_numTargets = target.getNumColorTextures();
+    graphics.NumRenderTargets = target.getNumColorTextures();
+
+    // Set color formats
+    for (uint32_t i = 0; i < m_numTargets; ++i) {
+        auto* texture = target.getColorTexture(i);
+        if (texture) {
+            // Convert format and add to render targets
+            graphics.RTVFormats[i] =
+                TEXTURE(texture->getResource())->GetDesc().Format;
+            m_numTargets++;
+        }
+    }
+
+    // Set depth stencil format
+    auto* depthTexture = target.getDepthTexture();
+    if (depthTexture) {
+        // Convert format and set depth stencil view
+        graphics.DSVFormat =
+            TEXTURE(depthTexture->getResource())->GetDesc().Format;
+    } else {
+        // No depth texture, set to default format
+        graphics.DSVFormat = Diligent::TEX_FORMAT_UNKNOWN;
+    }
+
     return *this;
 }
 

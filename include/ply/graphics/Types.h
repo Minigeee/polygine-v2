@@ -825,6 +825,7 @@ enum class Type : uint8_t {
                    ///< enumeration
 };
 
+/// \brief Defines how a resource can be used by the GPU and CPU
 enum class ResourceUsage : uint8_t {
     /// A resource that can only be read by the GPU. It cannot be written by the
     /// GPU,
@@ -888,6 +889,7 @@ enum class ResourceUsage : uint8_t {
     NUM_USAGES
 };
 
+/// \brief Defines which targest a gpu resource can be bound to
 enum class ResourceBind : uint32_t {
     /// Undefined binding.
     None = 0,
@@ -934,6 +936,7 @@ enum class ResourceBind : uint32_t {
 };
 BIT_OPERATOR(ResourceBind);
 
+/// \brief Defines cpu access flags for gpu resources.
 enum class ResourceAccess : uint8_t {
     None = 0u,        ///< No CPU access
     Read = 1u << 0u,  ///< A resource can be mapped for reading
@@ -941,6 +944,7 @@ enum class ResourceAccess : uint8_t {
 };
 BIT_OPERATOR(ResourceAccess);
 
+/// \brief Defines shader resource binding type
 enum class ShaderResourceType : uint8_t {
     /// Shader resource bound to the variable is the same for all SRB
     /// instances. It must be set *once* directly through Pipeline State

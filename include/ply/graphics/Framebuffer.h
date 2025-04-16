@@ -63,7 +63,7 @@ public:
     ///////////////////////////////////////////////////////////
     Texture* attachColor(
         const Vector2u& size,
-        TextureFormat format = TextureFormat::Srgb8_A8,
+        TextureFormat format = TextureFormat::Rgba8,
         ResourceBind bind = ResourceBind::RenderTarget |
                             ResourceBind::ShaderResource
     );

@@ -280,11 +280,18 @@ int main(int argc, char* argv[]) {
     ply::RenderDevice device;
     device.initialize(&window);
 
+    // Create framebuffer
+    auto windowSize = window.getSize();
+    ply::Framebuffer framebuffer = device.framebuffer();
+    framebuffer.attachColor(windowSize);
+    framebuffer.attachDepth(windowSize);
+
     auto vs = device.shader().type(ply::Shader::Vertex).file("cube.vsh").load();
     auto ps = device.shader().type(ply::Shader::Pixel).file("cube.psh").load();
 
     auto pipeline =
         device.pipeline()
+            .targetFormat(framebuffer)
             .shader(&vs)
             .shader(&ps)
             .addInputLayout(0, 0, 3, ply::Type::Float32)       // Position
@@ -346,12 +353,6 @@ int main(int argc, char* argv[]) {
         .create();
     // clang-format on
     binding.set(ply::Shader::Pixel, "g_Texture", texture);
-
-    // Create framebuffer
-    auto windowSize = window.getSize();
-    ply::Framebuffer framebuffer = device.framebuffer();
-    framebuffer.attachColor(windowSize);
-    framebuffer.attachDepth(windowSize);
 
     window.addListener<ply::Event::MouseButton>(
         [](const ply::Event::MouseButton& event) {
