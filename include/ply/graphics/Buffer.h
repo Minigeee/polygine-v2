@@ -18,6 +18,8 @@ namespace priv {
 ///////////////////////////////////////////////////////////
 class Buffer : public GpuResource {
 public:
+    Buffer();
+
     ///////////////////////////////////////////////////////////
     /// \brief Construct a GPU buffer resource.
     /// \param device The device implementation pointer.

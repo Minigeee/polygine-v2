@@ -9,6 +9,11 @@
 namespace ply {
 
 ///////////////////////////////////////////////////////////
+Buffer::Buffer() :
+    GpuResource(),
+    m_mapped(nullptr) {}
+
+///////////////////////////////////////////////////////////
 Buffer::Buffer(priv::DeviceImpl* device, void* resource, Handle handle) :
     GpuResource(device, resource, handle),
     m_mapped(nullptr) {}

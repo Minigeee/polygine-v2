@@ -175,6 +175,18 @@ priv::DeviceImpl* RenderDevice::getImpl() const {
 }
 
 ///////////////////////////////////////////////////////////
+uint32_t RenderDevice::getConstantBufferAlignment() const {
+    return m_device->m_renderDevice->GetAdapterInfo()
+        .Buffer.ConstantBufferOffsetAlignment;
+}
+
+///////////////////////////////////////////////////////////
+uint32_t RenderDevice::getStructuredBufferAlignment() const {
+    return m_device->m_renderDevice->GetAdapterInfo()
+        .Buffer.StructuredBufferOffsetAlignment;
+}
+
+///////////////////////////////////////////////////////////
 RenderContext::RenderContext() :
     m_device(nullptr),
     m_clearColor{0.0f, 0.0f, 0.0f, 1.0f},
@@ -202,7 +214,8 @@ void RenderContext::clear(ClearFlag flags) {
             );
         } else {
             // If custom framebuffer, clear all color attachments
-            for (size_t i = 0; i < m_currentFramebuffer->getNumColorTextures(); ++i) {
+            for (size_t i = 0; i < m_currentFramebuffer->getNumColorTextures();
+                 ++i) {
                 auto* pRTV = static_cast<ITextureView*>(
                     m_currentFramebuffer->m_colorTextureViews[i]
                 );
@@ -222,10 +235,13 @@ void RenderContext::clear(ClearFlag flags) {
 
         auto* pDSV = m_device->m_swapChain->GetDepthBufferDSV();
         if (!isDefaultFramebuffer) {
-            // If custom framebuffer, use the depth stencil view from the framebuffer
-            pDSV = static_cast<ITextureView*>(m_currentFramebuffer->m_depthTextureView);
+            // If custom framebuffer, use the depth stencil view from the
+            // framebuffer
+            pDSV = static_cast<ITextureView*>(
+                m_currentFramebuffer->m_depthTextureView
+            );
         }
-        
+
         m_device->m_deviceContext->ClearDepthStencil(
             pDSV,
             static_cast<CLEAR_DEPTH_STENCIL_FLAGS>(dsFlags),

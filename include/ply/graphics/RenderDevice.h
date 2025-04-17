@@ -352,6 +352,22 @@ public:
     ///
     /////////////////////////////////////////////////////////////
     priv::DeviceImpl* getImpl() const;
+    
+    /////////////////////////////////////////////////////////////
+    /// \brief Get required byte alignment offset for constant buffers
+    ///
+    /// \return Byte offset alignement
+    ///
+    /////////////////////////////////////////////////////////////
+    uint32_t getConstantBufferAlignment() const;
+    
+    /////////////////////////////////////////////////////////////
+    /// \brief Get required byte alignment offset for structured buffers
+    ///
+    /// \return Byte offset alignement
+    ///
+    /////////////////////////////////////////////////////////////
+    uint32_t getStructuredBufferAlignment() const;
 
 public:
     RenderContext context; //!< Render context
