@@ -14,6 +14,10 @@
 
 using namespace Diligent;
 
+#define TEXTURE(x) static_cast<Diligent::ITexture*>(x)
+#define PIPELINE(x) static_cast<Diligent::IPipelineState*>(x)
+#define RESOURCE_BINDING(x) static_cast<Diligent::IShaderResourceBinding*>(x)
+
 namespace ply {
 
 namespace priv {
@@ -31,11 +35,14 @@ namespace priv {
         RefCntAutoPtr<IDeviceContext> m_deviceContext; //!< Device context
 
         HandleArray<RefCntAutoPtr<IPipelineState>>
-            m_pipelines;                               //!< Pipeline states
-        HandleArray<RefCntAutoPtr<IShader>> m_shaders; //!< Shaders
-        HandleArray<RefCntAutoPtr<IBuffer>> m_buffers; //!< Buffers
+            m_pipelines;                                 //!< Pipeline states
+        HandleArray<RefCntAutoPtr<IShader>> m_shaders;   //!< Shaders
+        HandleArray<RefCntAutoPtr<IBuffer>> m_buffers;   //!< Buffers
         HandleArray<RefCntAutoPtr<ITexture>> m_textures; //!< Textures
         HandleArray<RefCntAutoPtr<IShaderResourceBinding>> m_resourceBindings;
+
+        RESOURCE_STATE_TRANSITION_MODE m_transitionMode =
+            RESOURCE_STATE_TRANSITION_MODE_TRANSITION; //!< Transition mode
     };
 
     ///////////////////////////////////////////////////////////
@@ -67,13 +74,13 @@ namespace priv {
     struct TextureDesc : public Diligent::TextureDesc {
         std::vector<TextureSubResData> Data;
     };
-    
+
     ///////////////////////////////////////////////////////////
     /// \brief Convert polygine texture format to Diligent texture format
     ///
     ///////////////////////////////////////////////////////////
     TEXTURE_FORMAT convertTextureFormat(TextureFormat format);
-    
+
     ///////////////////////////////////////////////////////////
     /// \brief Convert Diligent texture format to polygine texture format
     ///

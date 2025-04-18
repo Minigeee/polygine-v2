@@ -62,6 +62,14 @@ protected:
     priv::DeviceImpl* m_device; //!< Device state
 };
 
+///////////////////////////////////////////////////////////
+/// \brief Utility class to hold list of resource states
+///
+///////////////////////////////////////////////////////////
+class ResourceStateList {
+
+};
+
 } // namespace ply
 
 #define GPU_RESOURCE_NO_MOVE(X)                                  \

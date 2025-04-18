@@ -14,6 +14,7 @@ class RenderDevice;
 class Buffer;
 class Texture;
 class Framebuffer;
+class RenderPass;
 
 namespace priv {
     struct PipelineDesc;
@@ -188,6 +189,14 @@ public:
     ///
     ///////////////////////////////////////////////////////////
     PipelineBuilder& targetFormat(const Framebuffer& target);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Set the framebuffer render pass target for the pipeline.
+    /// \param pass The render pass this pipeline should render to.
+    /// \param subpass The subpass index within the render pass (default 0).
+    ///
+    ///////////////////////////////////////////////////////////
+    PipelineBuilder& renderPass(const RenderPass& pass, uint32_t subpass = 0);
 
     ///////////////////////////////////////////////////////////
     /// \brief Set the primitive topology for the pipeline.

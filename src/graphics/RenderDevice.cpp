@@ -7,6 +7,9 @@
 #include <Graphics/GraphicsEngineOpenGL/interface/EngineFactoryOpenGL.h>
 #include <Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h>
 
+#define TRANSITION_MODE(x) \
+    static_cast<Diligent::RESOURCE_STATE_TRANSITION_MODE>(x)
+
 namespace ply {
 
 ///////////////////////////////////////////////////////////
@@ -192,6 +195,7 @@ RenderContext::RenderContext() :
     m_clearColor{0.0f, 0.0f, 0.0f, 1.0f},
     m_clearDepth(1.0f),
     m_clearStencil(0),
+    m_transitionMode(RESOURCE_STATE_TRANSITION_MODE_TRANSITION),
     m_currentFramebuffer(nullptr) {}
 
 ///////////////////////////////////////////////////////////
@@ -210,7 +214,7 @@ void RenderContext::clear(ClearFlag flags) {
             m_device->m_deviceContext->ClearRenderTarget(
                 pRTV,
                 &m_clearColor,
-                RESOURCE_STATE_TRANSITION_MODE_TRANSITION
+                TRANSITION_MODE(m_transitionMode)
             );
         } else {
             // If custom framebuffer, clear all color attachments
@@ -223,7 +227,7 @@ void RenderContext::clear(ClearFlag flags) {
                 m_device->m_deviceContext->ClearRenderTarget(
                     pRTV,
                     &m_clearColor,
-                    RESOURCE_STATE_TRANSITION_MODE_TRANSITION
+                    TRANSITION_MODE(m_transitionMode)
                 );
             }
         }
@@ -247,7 +251,7 @@ void RenderContext::clear(ClearFlag flags) {
             static_cast<CLEAR_DEPTH_STENCIL_FLAGS>(dsFlags),
             m_clearDepth,
             m_clearStencil,
-            RESOURCE_STATE_TRANSITION_MODE_TRANSITION
+            TRANSITION_MODE(m_transitionMode)
         );
     }
 }
@@ -278,7 +282,7 @@ void RenderContext::setVertexBuffers(
         list.size(),
         reinterpret_cast<IBuffer**>(list.data()),
         offsets,
-        RESOURCE_STATE_TRANSITION_MODE_TRANSITION
+        TRANSITION_MODE(m_transitionMode)
     );
 }
 
@@ -287,7 +291,7 @@ void RenderContext::setIndexBuffer(const Buffer& buffer, uint64_t offset) {
     m_device->m_deviceContext->SetIndexBuffer(
         static_cast<IBuffer*>(buffer.getResource()),
         offset,
-        RESOURCE_STATE_TRANSITION_MODE_TRANSITION
+        TRANSITION_MODE(m_transitionMode)
     );
 }
 
@@ -302,7 +306,7 @@ void RenderContext::setPipeline(const Pipeline& pipeline) {
 void RenderContext::setResourceBinding(const ResourceBinding& binding) {
     m_device->m_deviceContext->CommitShaderResources(
         static_cast<IShaderResourceBinding*>(binding.getResource()),
-        RESOURCE_STATE_TRANSITION_MODE_TRANSITION
+        TRANSITION_MODE(m_transitionMode)
     );
 }
 
@@ -310,6 +314,14 @@ void RenderContext::setResourceBinding(const ResourceBinding& binding) {
 void RenderContext::setRenderTarget(Framebuffer& framebuffer) {
     framebuffer.bind(m_device);
     m_currentFramebuffer = &framebuffer;
+}
+
+///////////////////////////////////////////////////////////
+void RenderContext::setRenderPassMode(bool enabled) {
+    m_device->m_transitionMode =
+        enabled ? RESOURCE_STATE_TRANSITION_MODE_VERIFY
+                : RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    m_transitionMode = m_device->m_transitionMode;
 }
 
 ///////////////////////////////////////////////////////////

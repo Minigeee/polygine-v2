@@ -51,7 +51,7 @@ void Buffer::update(const void* data, size_t size, size_t offset) {
         offset,
         size,
         data,
-        RESOURCE_STATE_TRANSITION_MODE_TRANSITION
+        m_device->m_transitionMode
     );
 }
 

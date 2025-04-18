@@ -4,8 +4,6 @@
 #include <ply/core/PoolAllocator.h>
 #include <ply/graphics/RenderDevice.h>
 
-#define TEXTURE(x) static_cast<Diligent::ITexture*>(x)
-
 namespace ply {
 
 namespace priv {
@@ -82,8 +80,8 @@ void Texture::update(
         slice,
         UpdateBox,
         SubresData,
-        RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
-        RESOURCE_STATE_TRANSITION_MODE_TRANSITION
+        m_device->m_transitionMode,
+        m_device->m_transitionMode
     );
 }
 

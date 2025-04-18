@@ -4,22 +4,9 @@
 #include <ply/core/Macros.h>
 #include <ply/graphics/Buffer.h>
 #include <ply/graphics/Camera.h>
+#include <ply/graphics/RenderPass.h>
 
 namespace ply {
-
-///////////////////////////////////////////////////////////
-/// \brief Render pass type
-///
-/// Render systems can decide to skip rendering for certain
-/// render passes (i.e. skipping detail foliage for reflections).
-///
-///////////////////////////////////////////////////////////
-enum class RenderPass {
-    Default = 1 << 0,    //!< A default render pass
-    Shadow = 1 << 1,     //!< A shadow render pass
-    Reflection = 1 << 2, //!< A reflection render pass
-};
-BIT_OPERATOR(RenderPass);
 
 ///////////////////////////////////////////////////////////
 /// \brief Contains references to shared uniform buffers
@@ -34,15 +21,15 @@ struct ContextUniformBuffers {
 /// \brief Used to pass shared render data to each system
 ///
 ///////////////////////////////////////////////////////////
-struct RenderContext {
-    RenderContext(
+struct RenderPassContext {
+    RenderPassContext(
         Camera& camera,
-        RenderPass pass,
+        RenderPass::Type pass,
         ContextUniformBuffers buffers
     );
 
     Camera& camera;                //!< Camera being used to render scene
-    RenderPass pass;               //!< Current render pass
+    RenderPass::Type pass;        //!< Current render pass
     ContextUniformBuffers buffers; //!< List of shared uniform buffers
     bool isDeferredPass; //!< Is the current pass a deferred lighting pass
                          //!< (can't render transparent)
@@ -79,7 +66,7 @@ public:
     /// \param pass The render pass that is being executed
     ///
     ///////////////////////////////////////////////////////////
-    virtual void render(RenderContext& context) = 0;
+    virtual void render(RenderPassContext& context) = 0;
 
     ///////////////////////////////////////////////////////////
     /// \brief Check if the render system has a deferred render pass

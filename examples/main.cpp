@@ -266,6 +266,12 @@ ply::Matrix4f createProjViewMatrix(float time) {
 
 int main(int argc, char* argv[]) {
     // WIP :
+    // - [X] Create minified resource state enum
+    // - [ ] Create resource state list util class
+    // - [ ] Add renderPass() option to pipeline
+    // - [ ] Set up render pass, pipeline, shaders, buffers for renderer (deferred renderer)
+    // - [ ] Set up render function
+    //   - [ ] Update render system class: they need to define a list of resource states
 
     // ecsTest();
     // schedulerTest();

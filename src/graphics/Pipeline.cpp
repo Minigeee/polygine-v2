@@ -3,10 +3,7 @@
 #include "RenderImpl.h"
 #include <ply/core/PoolAllocator.h>
 #include <ply/graphics/RenderDevice.h>
-
-#define PIPELINE(x) static_cast<Diligent::IPipelineState*>(x)
-#define RESOURCE_BINDING(x) static_cast<Diligent::IShaderResourceBinding*>(x)
-#define TEXTURE(x) static_cast<Diligent::ITexture*>(x)
+#include <ply/graphics/RenderPass.h>
 
 namespace ply {
 
@@ -202,7 +199,30 @@ PipelineBuilder& PipelineBuilder::targetFormat(const Framebuffer& target) {
         graphics.DSVFormat = Diligent::TEX_FORMAT_UNKNOWN;
     }
 
+    // Reset render pass
+    graphics.pRenderPass = nullptr;
+    graphics.SubpassIndex = 0;
+
     return *this;
+}
+
+///////////////////////////////////////////////////////////
+PipelineBuilder&
+PipelineBuilder::renderPass(const RenderPass& pass, uint32_t subpass) {
+    auto& graphics = m_desc->GraphicsPipeline;
+    graphics.pRenderPass =
+        static_cast<Diligent::IRenderPass*>(pass.getResource());
+    graphics.SubpassIndex = subpass;
+
+    // Reset render targets when using render pass
+    graphics.NumRenderTargets = 0;
+    m_numTargets = 0;
+
+    // Set RTV formats to unknown when using render pass
+    for (uint32_t i = 0; i < DILIGENT_MAX_RENDER_TARGETS; ++i) {
+        graphics.RTVFormats[i] = Diligent::TEX_FORMAT_UNKNOWN;
+    }
+    graphics.DSVFormat = Diligent::TEX_FORMAT_UNKNOWN; // Reset DSV format
 }
 
 ///////////////////////////////////////////////////////////

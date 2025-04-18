@@ -4,9 +4,9 @@
 namespace ply {
 
 ///////////////////////////////////////////////////////////
-RenderContext::RenderContext(
+RenderPassContext::RenderPassContext(
     Camera& camera,
-    RenderPass pass,
+    RenderPass::Type pass,
     ContextUniformBuffers buffers
 ) :
     camera(camera),

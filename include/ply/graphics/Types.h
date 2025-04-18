@@ -964,6 +964,76 @@ enum class ShaderResourceType : uint8_t {
     NUM_TYPES
 };
 
+enum class ResourceState : uint32_t {
+    /// The resource state is not known to the engine and is managed by the
+    /// application
+    Unknown = 0,
+
+    /// The resource state is known to the engine, but is undefined. A resource
+    /// is typically in an undefined state right after initialization.
+    Undefined = 1u << 0,
+
+    /// The resource is accessed as a vertex buffer
+    /// \remarks Supported contexts: graphics.
+    VertexBuffer = 1u << 1,
+
+    /// The resource is accessed as a constant (uniform) buffer
+    /// \remarks Supported contexts: graphics, compute.
+    ConstantBuffer = 1u << 2,
+
+    /// The resource is accessed as an index buffer
+    /// \remarks Supported contexts: graphics.
+    IndexBuffer = 1u << 3,
+
+    /// The resource is accessed as a render target
+    /// \remarks Supported contexts: graphics.
+    RenderTarget = 1u << 4,
+
+    /// The resource is used for unordered access
+    /// \remarks Supported contexts: graphics, compute.
+    UnorderedAccess = 1u << 5,
+
+    /// The resource is used in a writable depth-stencil view or in clear
+    /// operation
+    /// \remarks Supported contexts: graphics.
+    DepthWrite = 1u << 6,
+
+    /// The resource is used in a read-only depth-stencil view
+    /// \remarks Supported contexts: graphics.
+    DepthRead = 1u << 7,
+
+    /// The resource is accessed from a shader
+    /// \remarks Supported contexts: graphics, compute.
+    ShaderResource = 1u << 8,
+
+    /// The resource is used as the destination for stream output
+    StreamOut = 1u << 9,
+
+    /// The resource is used as an indirect draw/dispatch arguments buffer
+    /// \remarks Supported contexts: graphics, compute.
+    IndirectArgument = 1u << 10,
+
+    /// The resource is used as the destination in a copy operation
+    /// \remarks Supported contexts: graphics, compute, transfer.
+    CopyDest = 1u << 11,
+
+    /// The resource is used as the source in a copy operation
+    /// \remarks Supported contexts: graphics, compute, transfer.
+    CopySource = 1u << 12,
+
+    /// The resource is used as the destination in a resolve operation
+    /// \remarks Supported contexts: graphics.
+    ResolveDest = 1u << 13,
+
+    /// The resource is used as the source in a resolve operation
+    /// \remarks Supported contexts: graphics.
+    ResolveSource = 1u << 14,
+
+    /// The resource is used as an input attachment in a render pass subpass
+    /// \remarks Supported contexts: graphics.
+    InputAttachment = 1u << 15
+};
+
 enum class TextureFilter : uint8_t {
     Unknown = 0, ///< Unknown filter type
     Point,       ///< Point filtering

@@ -2,10 +2,10 @@
 
 #include <ply/core/Macros.h>
 #include <ply/graphics/Buffer.h>
+#include <ply/graphics/Framebuffer.h>
 #include <ply/graphics/Image.h>
 #include <ply/graphics/Pipeline.h>
 #include <ply/graphics/Shader.h>
-#include <ply/graphics/Framebuffer.h>
 #include <ply/graphics/Texture.h>
 #include <ply/math/Types.h>
 
@@ -116,7 +116,7 @@ public:
     ///
     ///////////////////////////////////////////////////////////
     void setResourceBinding(const ResourceBinding& binding);
-    
+
     ///////////////////////////////////////////////////////////
     /// \brief Set current render target
     ///
@@ -124,6 +124,18 @@ public:
     ///
     ///////////////////////////////////////////////////////////
     void setRenderTarget(Framebuffer& framebuffer);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Set render pass mode
+    ///
+    /// This enables render pass mode, which is needed to use the render pass
+    /// API. This disables automatic resource state transitions and must be
+    /// called before starting a render pass.
+    ///
+    /// \param enabled True to enable render pass mode, false to disable
+    ///
+    ///////////////////////////////////////////////////////////
+    void setRenderPassMode(bool enabled);
 
     ///////////////////////////////////////////////////////////
     /// \brief Draw to current render target using current pipeline
@@ -161,6 +173,7 @@ private:
     Vector4f m_clearColor;      //!< Clear color
     float m_clearDepth;         //!< Clear depth
     uint8_t m_clearStencil;     //!< Clear stencil
+    uint8_t m_transitionMode;   //!< Resource state transition mode
 
     Framebuffer* m_currentFramebuffer; //!< Current framebuffer
 };
@@ -352,7 +365,7 @@ public:
     ///
     /////////////////////////////////////////////////////////////
     priv::DeviceImpl* getImpl() const;
-    
+
     /////////////////////////////////////////////////////////////
     /// \brief Get required byte alignment offset for constant buffers
     ///
@@ -360,7 +373,7 @@ public:
     ///
     /////////////////////////////////////////////////////////////
     uint32_t getConstantBufferAlignment() const;
-    
+
     /////////////////////////////////////////////////////////////
     /// \brief Get required byte alignment offset for structured buffers
     ///

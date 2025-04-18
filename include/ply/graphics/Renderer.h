@@ -7,13 +7,18 @@
 #include <ply/graphics/Framebuffer.h>
 #include <ply/graphics/Pipeline.h>
 #include <ply/graphics/Shader.h>
+#include <ply/graphics/RenderPass.h>
 
 #include <vector>
 
 namespace ply {
 
 class RenderSystem;
-enum class RenderPass;
+
+namespace priv {
+    struct RendererImpl;
+    struct GBuffer;
+}
 
 ///////////////////////////////////////////////////////////
 /// \brief Manages the 3D rendering pipeline
@@ -89,57 +94,33 @@ public:
     const Vector3f& getAmbient() const;
 
 private:
-    ///////////////////////////////////////////////////////////
-    // Lights
-    ///////////////////////////////////////////////////////////
+    void createRenderPass();
+    
+	///////////////////////////////////////////////////////////
+	/// \brief Perform a render pass
+	///////////////////////////////////////////////////////////
+	void doRenderPass(Camera& camera, Framebuffer& target, RenderPass::Type pass);
 
-    ///////////////////////////////////////////////////////////
-    /// \brief Update lights buffer by retrieving light information from from
-    /// scene
-    ///////////////////////////////////////////////////////////
-    void updateLightsBuffer();
+    priv::GBuffer& getGBuffer(Framebuffer& target);
 
-    ///////////////////////////////////////////////////////////
-    // Shadows
-    ///////////////////////////////////////////////////////////
+    void startRenderPass(const priv::GBuffer& gbuffer);
 
-    ///////////////////////////////////////////////////////////
-    /// \brief Do shadow passes based on main dir light
-    ///////////////////////////////////////////////////////////
-    void doShadowPasses(Camera& camera);
-
-    ///////////////////////////////////////////////////////////
-    // Renderer
-    ///////////////////////////////////////////////////////////
-
-    ///////////////////////////////////////////////////////////
-    /// \brief Get deferred lighting shader (load if not yet)
-    ///////////////////////////////////////////////////////////
-    Shader& getDeferredShader();
-
-    ///////////////////////////////////////////////////////////
-    /// \brief Get deferred framebuffer for given target
-    ///////////////////////////////////////////////////////////
-    Framebuffer* getDeferredFramebuffer(Framebuffer& target);
-
-    ///////////////////////////////////////////////////////////
-    /// \brief Perform a render pass
-    ///////////////////////////////////////////////////////////
-    void renderPass(Camera& camera, Framebuffer& target, RenderPass pass);
+    void applyLighting(const priv::GBuffer& gbuffer);
 
 private:
+    RenderDevice* m_device; //!< Pointer to render device
+    std::unique_ptr<priv::RendererImpl>
+        m_impl;         //!< Pointer to renderer implementation members
     Vector3f m_ambient; //!< Ambient color
 
     std::vector<Framebuffer*>
         m_shadowMaps; //!< Shadow maps, one for each cascade level
-
     std::vector<RenderSystem*> m_systems; //!< A list of render systems
-    HashMap<uint32_t, Framebuffer*>
-        m_gBuffers; //!< Map each output target framebuffer to its own deferred
-    //!< pipeline framebuffer (to minimize resizing buffers
-    //!< between different targets)
+
+    RenderPass m_renderPass; //!< Render pass wrapper
 
     Pipeline m_deferredPipeline; //!< Pipeline used for deferred rendering
+    Shader m_quadShader;     //!< Shader used to render lighting
     Shader m_deferredShader;     //!< Shader used to render lighting
     Buffer m_cameraBuffer;       //!< Buffer used to store camrea uniforms
     Buffer m_lightsBuffer;    //!< Buffer used to store dynamic light uniforms
