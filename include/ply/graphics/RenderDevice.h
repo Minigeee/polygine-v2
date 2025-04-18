@@ -126,6 +126,18 @@ public:
     void setRenderTarget(Framebuffer& framebuffer);
 
     ///////////////////////////////////////////////////////////
+    /// \brief Transitions all resources to the correct state
+    ///
+    /// \param binding The resource binding to set states for
+    ///
+    /// \remark This method is used to ensure that all resources in the
+    /// resource binding are in the correct state before using the
+    /// render pass API.
+    ///
+    ///////////////////////////////////////////////////////////
+    void setResourceStates(ResourceBinding& binding);
+
+    ///////////////////////////////////////////////////////////
     /// \brief Set render pass mode
     ///
     /// This enables render pass mode, which is needed to use the render pass

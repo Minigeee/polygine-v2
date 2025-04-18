@@ -34,16 +34,6 @@ public:
     void setPosition(const Vector3f& pos);
 
     ///////////////////////////////////////////////////////////
-    /// \brief Set the camera position
-    ///
-    /// \param x Position along the x axis
-    /// \param y Position along the y axis
-    /// \param z Position along the z axis
-    ///
-    ///////////////////////////////////////////////////////////
-    void setPosition(float x, float y, float z);
-
-    ///////////////////////////////////////////////////////////
     /// \brief Set the camera direction
     ///
     /// The direction vector does not have to be normalized
@@ -54,18 +44,6 @@ public:
     void setDirection(const Vector3f& dir);
 
     ///////////////////////////////////////////////////////////
-    /// \brief Set the camera direction
-    ///
-    /// The direction vector does not have to be normalized
-    ///
-    /// \param x The x component of the direction vector
-    /// \param y The y component of the direction vector
-    /// \param z The z component of the direction vector
-    ///
-    ///////////////////////////////////////////////////////////
-    void setDirection(float x, float y, float z);
-
-    ///////////////////////////////////////////////////////////
     /// \brief Set camera rotation along the x and y axis
     ///
     /// Rotation along the z axis (roll) is not supported yet
@@ -74,17 +52,6 @@ public:
     ///
     ///////////////////////////////////////////////////////////
     void setRotation(const Vector2f& rotation);
-
-    ///////////////////////////////////////////////////////////
-    /// \brief Set camera rotation along the x and y axis
-    ///
-    /// Rotation along the z axis (roll) is not supported yet
-    ///
-    /// \param x Rotation on the x axis
-    /// \param y Rotation on the y axis
-    ///
-    ///////////////////////////////////////////////////////////
-    void setRotation(float x, float y);
 
     ///////////////////////////////////////////////////////////
     /// \brief Set the camera zoom factor
@@ -103,16 +70,6 @@ public:
     ///
     ///////////////////////////////////////////////////////////
     void move(const Vector3f& offset);
-
-    ///////////////////////////////////////////////////////////
-    /// \brief Move the camera in world space relative to the world origin
-    ///
-    /// \brief x The x offset to move the camera in world space
-    /// \brief y The y offset to move the camera in world space
-    /// \brief z The z offset to move the camera in world space
-    ///
-    ///////////////////////////////////////////////////////////
-    void move(float x, float y, float z);
 
     ///////////////////////////////////////////////////////////
     /// \brief Scale the zoom factor
@@ -173,16 +130,16 @@ public:
     ///
     /// \param fov The field of view along the x axis in degrees
     /// \param ar The aspect ratio
-    /// \param near The distance to the near plane
-    /// \param far The distance to the far plane
+    /// \param n The distance to the near plane
+    /// \param f The distance to the far plane
     ///
     ///////////////////////////////////////////////////////////
-    void setPerspective(float fov, float ar, float near, float far);
+    void setPerspective(float fov, float ar, float n, float f);
 
     ///////////////////////////////////////////////////////////
     /// \brief Set the camera field of view
     ///
-    /// \param The field view along the x axis in degrees
+    /// \param fov The field view along the x axis in degrees
     ///
     ///////////////////////////////////////////////////////////
     void setFov(float fov);

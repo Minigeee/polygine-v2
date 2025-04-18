@@ -9,16 +9,7 @@
 using namespace Diligent;
 
 ///////////////////////////////////////////////////////////
-#define LIGHT_UNIFORM_BUFFER_SIZE 10
-#define CAMERA_UNIFORM_BUFFER_SIZE 10
-#define ANIM_UNIFORM_BUFFER_SIZE 20
-
-///////////////////////////////////////////////////////////
 #define MAX_NUM_DIR_LIGHTS 2
-#define MAX_NUM_POINT_LIGHTS 100
-#define MAX_NUM_SHADOW_CASCADES 3
-
-///////////////////////////////////////////////////////////
 #define MAX_NUM_SKELETAL_BONES 50
 
 namespace ply {
@@ -91,7 +82,17 @@ Renderer::Renderer() :
 Renderer::~Renderer() {}
 
 ///////////////////////////////////////////////////////////
-void Renderer::createRenderPass() {
+void Renderer::createRenderPass(TextureFormat targetFormat) {
+    // Get target format
+    TEXTURE_FORMAT format;
+    if (targetFormat == TextureFormat::Unknown) {
+        // Use default framebuffer format
+        format = m_device->getImpl()->m_swapChain->GetDesc().ColorBufferFormat;
+    } else {
+        // Convert polygine texture format to Diligent format
+        format = priv::convertTextureFormat(targetFormat);
+    }
+
     // Set up attachments
     constexpr uint32_t NUM_ATTACHMENTS = 4;
     RenderPassAttachmentDesc attachments[NUM_ATTACHMENTS];
@@ -114,7 +115,7 @@ void Renderer::createRenderPass() {
     attachments[2].LoadOp = ATTACHMENT_LOAD_OP_CLEAR;
     attachments[2].StoreOp = ATTACHMENT_STORE_OP_DISCARD;
 
-    attachments[3].Format = TEX_FORMAT_RGBA16_FLOAT;
+    attachments[3].Format = format;
     attachments[3].InitialState = RESOURCE_STATE_RENDER_TARGET;
     attachments[3].FinalState = RESOURCE_STATE_RENDER_TARGET;
     attachments[3].LoadOp = ATTACHMENT_LOAD_OP_CLEAR;
@@ -183,13 +184,13 @@ void Renderer::createRenderPass() {
 }
 
 ///////////////////////////////////////////////////////////
-void Renderer::initialize(RenderDevice* device) {
+void Renderer::initialize(RenderDevice* device, const RendererConfig& config) {
     m_device = device;
 
     uint32_t align = device->getConstantBufferAlignment();
 
     // Set up render pass
-    createRenderPass();
+    createRenderPass(config.targetFormat);
 
     // Allocate camera buffer
     uint32_t size = (sizeof(CB_Camera) + align - 1) / align * align;
@@ -198,7 +199,7 @@ void Renderer::initialize(RenderDevice* device) {
             .access(ResourceAccess::Write)
             .bind(ResourceBind::UniformBuffer)
             .usage(ResourceUsage::Dynamic)
-            .size(size * CAMERA_UNIFORM_BUFFER_SIZE)
+            .size(size * config.buffer.cameraBufferSize)
             .create();
 
     // Allocate lights buffer
@@ -208,7 +209,7 @@ void Renderer::initialize(RenderDevice* device) {
             .access(ResourceAccess::Write)
             .bind(ResourceBind::UniformBuffer)
             .usage(ResourceUsage::Dynamic)
-            .size(size * LIGHT_UNIFORM_BUFFER_SIZE)
+            .size(size * config.buffer.lightBufferSize)
             .create();
 
     // Allocate animation buffer
@@ -218,20 +219,39 @@ void Renderer::initialize(RenderDevice* device) {
             .access(ResourceAccess::Write)
             .bind(ResourceBind::UniformBuffer)
             .usage(ResourceUsage::Dynamic)
-            .size(size * ANIM_UNIFORM_BUFFER_SIZE)
+            .size(size * config.buffer.animBufferSize)
             .create();
+
+    // Check if glsl should be used
+    const auto& deviceInfo = device->getImpl()->m_renderDevice->GetDeviceInfo();
+    const auto useGlsl =
+        deviceInfo.IsVulkanDevice() || deviceInfo.IsMetalDevice();
 
     // Deferred lighting pipeline
     m_quadShader =
         device->shader().type(Shader::Vertex).file("quad.vsh").load();
     m_deferredShader =
-        device->shader().type(Shader::Pixel).file("deferred.psh").load();
+        device->shader()
+            .language(useGlsl ? Shader::Language::Glsl : Shader::Language::Hlsl)
+            .type(Shader::Pixel)
+            .file(useGlsl ? "deferred_glsl.psh" : "deferred_hlsl.psh")
+            .load();
 
     m_deferredPipeline =
         device->pipeline()
             .renderPass(m_renderPass, 1)
             .shader(&m_quadShader)
             .shader(&m_deferredShader)
+            .addVariable(
+                "g_colorTexture",
+                Shader::Pixel,
+                ShaderResourceType::Mutable
+            ) // Color texture
+            .addVariable(
+                "g_depthTexture",
+                Shader::Pixel,
+                ShaderResourceType::Mutable
+            ) // Depth texture
             .topology(PrimitiveTopology::TriangleStrip)
             .cull(CullMode::None)
             .depth(false)
@@ -241,7 +261,19 @@ void Renderer::initialize(RenderDevice* device) {
 ///////////////////////////////////////////////////////////
 void Renderer::add(RenderSystem* system) {
     m_systems.push_back(system);
-    system->initialize();
+    system->m_device = m_device;
+
+    ContextUniformBuffers buffers({m_cameraBuffer, m_lightsBuffer});
+    RenderSystem::Init data{m_device, buffers, m_renderPass};
+    system->initialize(data);
+}
+
+///////////////////////////////////////////////////////////
+void Renderer::update(float dt) {
+    // Update all render systems
+    for (RenderSystem* system : m_systems) {
+        system->update(dt);
+    }
 }
 
 ///////////////////////////////////////////////////////////
@@ -286,6 +318,17 @@ void Renderer::doRenderPass(
         }
 
         return;
+    }
+
+    // Transition resource states
+    for (RenderSystem* system : m_systems) {
+        const auto& transitions = system->m_impl->m_transitions;
+        if (transitions.size() > 0) {
+            deviceContext->TransitionResourceStates(
+                transitions.size(),
+                &transitions[0]
+            );
+        }
     }
 
     // Start render pass
@@ -381,7 +424,7 @@ priv::GBuffer& Renderer::getGBuffer(Framebuffer& target) {
         ITexture* targetTexture = nullptr;
         if (&target == &Framebuffer::Default) {
             texDesc.Name = "G-buffer intermediate texture";
-            texDesc.Format = TEX_FORMAT_RGBA16_FLOAT;
+            texDesc.Format = device->m_swapChain->GetDesc().ColorBufferFormat;
             texDesc.BindFlags = BIND_RENDER_TARGET | BIND_SHADER_RESOURCE;
             texDesc.Usage = USAGE_DEFAULT;
 
@@ -393,6 +436,8 @@ priv::GBuffer& Renderer::getGBuffer(Framebuffer& target) {
                 device->m_textures.push(intermediateTexture);
             gbuffer.m_intermediateTexture =
                 Texture(device, intermediateTexture, intermediateHandle);
+
+            targetTexture = intermediateTexture;
         }
 
         // Use first color attachment
@@ -403,6 +448,7 @@ priv::GBuffer& Renderer::getGBuffer(Framebuffer& target) {
         // Depth Z
         texDesc.Name = "Depth Z G-buffer";
         texDesc.Format = rpDesc.pAttachments[1].Format;
+        texDesc.BindFlags = BIND_RENDER_TARGET | BIND_INPUT_ATTACHMENT;
         texDesc.MiscFlags =
             ((MemorylessTexBindFlags & texDesc.BindFlags) == texDesc.BindFlags)
                 ? MISC_TEXTURE_FLAG_MEMORYLESS
@@ -450,6 +496,11 @@ priv::GBuffer& Renderer::getGBuffer(Framebuffer& target) {
         FBDesc.AttachmentCount = _countof(pAttachments);
         FBDesc.ppAttachments = pAttachments;
 
+        device->m_renderDevice->CreateFramebuffer(
+            FBDesc,
+            &gbuffer.m_framebuffer
+        );
+
         // Create deferred resource binding
         gbuffer.m_deferredBinding = m_deferredPipeline.createResourceBinding();
         gbuffer.m_deferredBinding
@@ -458,7 +509,9 @@ priv::GBuffer& Renderer::getGBuffer(Framebuffer& target) {
             .set(Shader::Pixel, "g_depthTexture", gbuffer.m_depthZTexture);
 
         // Add to map
-        it = m_impl->m_gBuffers.emplace(std::make_pair(&target, std::move(gbuffer))).first;
+        it = m_impl->m_gBuffers
+                 .emplace(std::make_pair(&target, std::move(gbuffer)))
+                 .first;
     }
 
     return it.value();

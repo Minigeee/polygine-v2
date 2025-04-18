@@ -1,7 +1,12 @@
 cbuffer Constants
 {
-    float4x4 g_ViewProj;
     float4x4 g_Rotation;
+};
+
+cbuffer Camera
+{
+    float4x4 g_projView;
+    float4 g_cameraPos;
 };
 
 struct VSInput
@@ -37,7 +42,7 @@ void main(in  VSInput VSIn,
     // Apply rotation
     float4 TransformedPos = InstanceMatr * g_Rotation * float4(VSIn.Pos, 1.0);
     // Apply view-projection matrix
-    PSIn.Pos = g_ViewProj * TransformedPos;
+    PSIn.Pos = g_projView * TransformedPos;
     PSIn.UV  = VSIn.UV;
     PSIn.TexIndex = VSIn.TexArrInd;
 }

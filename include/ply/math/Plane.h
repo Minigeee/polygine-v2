@@ -9,7 +9,7 @@ namespace ply {
 ///
 ///////////////////////////////////////////////////////////
 class Plane {
-   public:
+public:
     ///////////////////////////////////////////////////////////
     /// \brief Default constructor
     ///
@@ -77,6 +77,6 @@ class Plane {
 /// \ret The signed distance
 ///
 ///////////////////////////////////////////////////////////
-float distance(const Plane& plane, const Vector3f& p);
+float dist(const Plane& plane, const Vector3f& p);
 
-}  // namespace ply
+} // namespace ply

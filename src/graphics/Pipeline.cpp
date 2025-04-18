@@ -222,7 +222,9 @@ PipelineBuilder::renderPass(const RenderPass& pass, uint32_t subpass) {
     for (uint32_t i = 0; i < DILIGENT_MAX_RENDER_TARGETS; ++i) {
         graphics.RTVFormats[i] = Diligent::TEX_FORMAT_UNKNOWN;
     }
-    graphics.DSVFormat = Diligent::TEX_FORMAT_UNKNOWN; // Reset DSV format
+    graphics.DSVFormat = Diligent::TEX_FORMAT_UNKNOWN;
+
+    return *this;
 }
 
 ///////////////////////////////////////////////////////////

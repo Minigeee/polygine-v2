@@ -25,7 +25,7 @@ bool Frustum::contains(const BoundingBox& box) const {
         vmin.y = plane.n.y > 0.0f ? max.y : min.y;
         vmin.z = plane.n.z > 0.0f ? max.z : min.z;
 
-        if (distance(plane, vmin) < 0.0f)
+        if (dist(plane, vmin) < 0.0f)
             return false;
     }
 
@@ -39,11 +39,11 @@ bool Frustum::contains(const Sphere& sphere) const {
     for (uint32_t i = 0; i < 6; ++i) {
         const Plane& plane = m_planes[i];
 
-        if (distance(plane, sphere.m_position) + sphere.m_radius < 0.0f)
+        if (dist(plane, sphere.m_position) + sphere.m_radius < 0.0f)
             contains = false;
     }
 
     return contains;
 }
 
-}  // namespace ply
+} // namespace ply

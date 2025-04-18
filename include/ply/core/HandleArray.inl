@@ -3,10 +3,14 @@
 namespace ply {
 
 ///////////////////////////////////////////////////////////
-template <typename T> inline HandleArray<T>::HandleArray() : m_nextFree(0) {}
+template <typename T>
+inline HandleArray<T>::HandleArray() :
+    m_nextFree(0) {}
 
 ///////////////////////////////////////////////////////////
-template <typename T> inline HandleArray<T>::HandleArray(uint32_t size) : m_nextFree(0) {
+template <typename T>
+inline HandleArray<T>::HandleArray(uint32_t size) :
+    m_nextFree(0) {
     m_data.reserve(size);
     m_handleToData.resize(size);
     m_dataToHandle.resize(size, 0);
@@ -17,18 +21,26 @@ template <typename T> inline HandleArray<T>::HandleArray(uint32_t size) : m_next
 }
 
 ///////////////////////////////////////////////////////////
-template <typename T> inline T& HandleArray<T>::operator[](Handle handle) {
+template <typename T>
+inline T& HandleArray<T>::operator[](Handle handle) {
     CHECK_F(
-        handle.m_index < m_handleToData.size(), "Handle index out of bounds: %d", handle.m_index
+        handle.m_index < m_handleToData.size(),
+        "Handle index out of bounds: %d",
+        handle.m_index
     );
     Handle entry = m_handleToData[handle.m_index];
-    CHECK_F(entry.m_counter == handle.m_counter, "Invalid handle: %d", handle.m_index);
+    CHECK_F(
+        entry.m_counter == handle.m_counter,
+        "Invalid handle: %d",
+        handle.m_index
+    );
 
     return m_data[entry.m_index];
 }
 
 ///////////////////////////////////////////////////////////
-template <typename T> inline Handle HandleArray<T>::push(const T& element) {
+template <typename T>
+inline Handle HandleArray<T>::push(const T& element) {
     // Resize the arrays if the next free handle is out of bounds
     if (m_nextFree >= m_handleToData.size()) {
         m_handleToData.push_back(Handle((uint32_t)(m_handleToData.size() + 1)));
@@ -54,7 +66,8 @@ template <typename T> inline Handle HandleArray<T>::push(const T& element) {
 }
 
 ///////////////////////////////////////////////////////////
-template <typename T> inline Handle HandleArray<T>::push(T&& element) {
+template <typename T>
+inline Handle HandleArray<T>::push(T&& element) {
     // Resize the arrays if the next free handle is out of bounds
     if (m_nextFree >= m_handleToData.size()) {
         m_handleToData.push_back(Handle((uint32_t)(m_handleToData.size() + 1)));
@@ -80,9 +93,14 @@ template <typename T> inline Handle HandleArray<T>::push(T&& element) {
 }
 
 ///////////////////////////////////////////////////////////
-template <typename T> inline void HandleArray<T>::remove(Handle handle) {
+template <typename T>
+inline void HandleArray<T>::remove(Handle handle) {
+    if (handle.m_index >= m_handleToData.size())
+        int a = 0;
     CHECK_F(
-        handle.m_index < m_handleToData.size(), "Handle index out of bounds: %d", handle.m_index
+        handle.m_index < m_handleToData.size(),
+        "Handle index out of bounds: %d",
+        handle.m_index
     );
     CHECK_F(
         m_handleToData[handle.m_index].m_counter == handle.m_counter,
@@ -93,7 +111,8 @@ template <typename T> inline void HandleArray<T>::remove(Handle handle) {
     uint32_t pos = m_handleToData[handle.m_index].m_index;
 
     // Swap pop
-    // Not the most efficient swap, but no other way to properly call the destructor
+    // Not the most efficient swap, but no other way to properly call the
+    // destructor
     std::swap(m_data[pos], m_data.back());
     m_data.pop_back();
 
@@ -117,7 +136,8 @@ template <typename T> inline void HandleArray<T>::remove(Handle handle) {
 }
 
 ///////////////////////////////////////////////////////////
-template <typename T> inline void HandleArray<T>::reset() {
+template <typename T>
+inline void HandleArray<T>::reset() {
     // Just completely reset everything
     m_data = std::vector<T>();
     m_handleToData = std::vector<Handle>();
@@ -126,40 +146,51 @@ template <typename T> inline void HandleArray<T>::reset() {
 }
 
 ///////////////////////////////////////////////////////////
-template <typename T> inline uint32_t HandleArray<T>::size() const {
+template <typename T>
+inline uint32_t HandleArray<T>::size() const {
     return (uint32_t)m_data.size();
 }
 
 ///////////////////////////////////////////////////////////
-template <typename T> inline uint32_t HandleArray<T>::capacity() const {
+template <typename T>
+inline uint32_t HandleArray<T>::capacity() const {
     return (uint32_t)m_data.capacity();
 }
 
 ///////////////////////////////////////////////////////////
-template <typename T> inline bool HandleArray<T>::isEmpty() const {
+template <typename T>
+inline bool HandleArray<T>::isEmpty() const {
     return m_data.empty();
 }
 
 ///////////////////////////////////////////////////////////
-template <typename T> inline std::vector<T>& HandleArray<T>::data() {
+template <typename T>
+inline std::vector<T>& HandleArray<T>::data() {
     return m_data;
 }
 
 ///////////////////////////////////////////////////////////
-template <typename T> inline const std::vector<T>& HandleArray<T>::data() const {
+template <typename T>
+inline const std::vector<T>& HandleArray<T>::data() const {
     return m_data;
 }
 
 ///////////////////////////////////////////////////////////
-template <typename T> inline uint32_t HandleArray<T>::getIndex(Handle handle) const {
+template <typename T>
+inline uint32_t HandleArray<T>::getIndex(Handle handle) const {
     Handle entry = m_handleToData[handle.m_index];
-    CHECK_F(entry.m_counter == handle.m_counter, "Invalid handle: %d", handle.m_index);
+    CHECK_F(
+        entry.m_counter == handle.m_counter,
+        "Invalid handle: %d",
+        handle.m_index
+    );
 
     return entry.m_index;
 }
 
 ///////////////////////////////////////////////////////////
-template <typename T> inline Handle HandleArray<T>::getHandle(uint32_t index) const {
+template <typename T>
+inline Handle HandleArray<T>::getHandle(uint32_t index) const {
     CHECK_F(index < m_data.size(), "Handle index out of bounds: %d", index);
 
     uint32_t handleIndex = m_dataToHandle[index];

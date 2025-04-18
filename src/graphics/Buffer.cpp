@@ -38,6 +38,7 @@ Buffer::Buffer(Buffer&& other) noexcept :
 ///////////////////////////////////////////////////////////
 Buffer& Buffer::operator=(Buffer&& other) noexcept {
     if (&other != this) {
+        GpuResource::operator=(std::move(other));
         m_mapped = std::exchange(other.m_mapped, nullptr);
         m_mode = other.m_mode;
     }

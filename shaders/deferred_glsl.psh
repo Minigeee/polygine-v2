@@ -1,0 +1,24 @@
+precision highp float;
+precision highp int;
+
+layout(input_attachment_index = 0, binding = 0) uniform highp subpassInput g_colorTexture;
+layout(input_attachment_index = 1, binding = 1) uniform highp subpassInput g_depthTexture;
+
+layout(location = 0) out vec4 out_Color;
+
+void main()
+{
+    float Depth = subpassLoad(g_depthTexture).x;
+    if (Depth == 1.0)
+    {
+        // Discard background pixels
+        discard;
+    }
+
+    out_Color.rgb = subpassLoad(g_colorTexture).rgb;
+#if CONVERT_PS_OUTPUT_TO_GAMMA
+    // Use fast approximation for gamma correction.
+    out_Color.rgb = pow(out_Color.rgb, vec3(1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2));
+#endif
+    out_Color.a = 1.0;
+}

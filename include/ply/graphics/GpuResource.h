@@ -10,7 +10,8 @@ class ResourceBinding;
 
 namespace priv {
     struct DeviceImpl;
-}
+    struct ResourceStateListImpl;
+} // namespace priv
 
 class GpuResource {
 public:
@@ -66,9 +67,29 @@ protected:
 /// \brief Utility class to hold list of resource states
 ///
 ///////////////////////////////////////////////////////////
-class ResourceStateList {
+/* class ResourceStateList {
+public:
+    ResourceStateList();
+    ResourceStateList(
+        std::initializer_list<std::pair<const GpuResource*, ResourceState>> list
+    );
 
-};
+    ///////////////////////////////////////////////////////////
+    /// \brief Add a resource state to the list
+    ///
+    ///////////////////////////////////////////////////////////
+    void push(const Buffer& resource, ResourceState state);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Get the size of the resource states list
+    ///
+    ///////////////////////////////////////////////////////////
+    size_t size() const;
+
+private:
+    std::unique_ptr<priv::ResourceStateListImpl>
+        m_impl; //!< Implementation details
+}; */
 
 } // namespace ply
 

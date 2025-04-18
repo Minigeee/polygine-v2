@@ -8,6 +8,12 @@
 
 namespace ply {
 
+class Renderer;
+
+namespace priv {
+    struct RenderSystemImpl;
+}
+
 ///////////////////////////////////////////////////////////
 /// \brief Contains references to shared uniform buffers
 ///
@@ -29,7 +35,7 @@ struct RenderPassContext {
     );
 
     Camera& camera;                //!< Camera being used to render scene
-    RenderPass::Type pass;        //!< Current render pass
+    RenderPass::Type pass;         //!< Current render pass
     ContextUniformBuffers buffers; //!< List of shared uniform buffers
     bool isDeferredPass; //!< Is the current pass a deferred lighting pass
                          //!< (can't render transparent)
@@ -40,21 +46,57 @@ struct RenderPassContext {
 ///
 ///////////////////////////////////////////////////////////
 class RenderSystem {
+    friend Renderer;
+
 public:
     ///////////////////////////////////////////////////////////
-    /// \brief Default destructor
+    /// \brief Data passed to system initialization
     ///
     ///////////////////////////////////////////////////////////
-    RenderSystem() {}
+    struct Init {
+        RenderDevice* device;          //!< Render device to use for rendering
+        ContextUniformBuffers buffers; //!< Shared uniform buffers
+        RenderPass& renderPass;        //!< Render pass to use for rendering
+    };
+
+public:
+    ///////////////////////////////////////////////////////////
+    /// \brief Default constructor
+    ///
+    ///////////////////////////////////////////////////////////
+    RenderSystem();
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Virtual destructor
+    ///
+    ///////////////////////////////////////////////////////////
+    virtual ~RenderSystem();
+
+    RenderSystem(const RenderSystem&) = delete;
+    RenderSystem& operator=(const RenderSystem&) = delete;
+    RenderSystem(RenderSystem&&) noexcept;
+    RenderSystem& operator=(RenderSystem&&) noexcept;
 
     ///////////////////////////////////////////////////////////
     /// \brief This function should initialize anything that is scene dependent,
     ///        such as access to entities
     ///
-    /// \param scene A pointer to the scene to initialize the system for
+    /// \param context Initialization context containing useful initializtion
+    /// data
     ///
     ///////////////////////////////////////////////////////////
-    virtual void initialize() = 0;
+    virtual void initialize(const RenderSystem::Init& context) = 0;
+
+    ///////////////////////////////////////////////////////////
+    /// \brief This function should be used to perform any graphics related
+    /// updates (such as animations)
+    ///
+    /// This function will be called once per frame before rendering.
+    ///
+    /// \param dt The time since the last frame in seconds
+    ///
+    ///////////////////////////////////////////////////////////
+    virtual void update(float dt);
 
     ///////////////////////////////////////////////////////////
     /// \brief Execute the rendering procedures
@@ -89,6 +131,23 @@ public:
     ///
     ///////////////////////////////////////////////////////////
     virtual bool hasForwardPass() const;
+
+protected:
+    ///////////////////////////////////////////////////////////
+    /// \brief Register a resource with the state it should be in during the
+    /// render phase
+    ///
+    /// \param resource The resource to register
+    /// \param state The state the resource should be in during the render phase
+    ///
+    ///////////////////////////////////////////////////////////
+    void addResource(GpuResource& resource, ResourceState state);
+
+    RenderDevice* m_device; //!< Pointer to the render device used for rendering
+
+private:
+    priv::RenderSystemImpl*
+        m_impl; //!< Pointer to implementation details of the render system
 };
 
 } // namespace ply

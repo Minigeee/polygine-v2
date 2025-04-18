@@ -135,7 +135,7 @@ Texture* Framebuffer::attachDepth(
             .usage(ResourceUsage::Default)
             .create();
 
-    m_depthTexture = {texture, false};
+    m_depthTexture = {texture, true};
     m_depthTextureView = static_cast<ITexture*>(texture->getResource())
                              ->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
 

@@ -21,6 +21,38 @@ namespace priv {
 }
 
 ///////////////////////////////////////////////////////////
+/// \brief Buffer size config
+///
+///////////////////////////////////////////////////////////
+struct RendererBufferConfig {
+    /// Size of the light uniform buffer in number of struct elements (default 10)
+    uint32_t lightBufferSize = 10;
+
+    /// Size of the camera uniform buffer in number of struct elements (default 10)
+    uint32_t cameraBufferSize = 10;
+
+    /// Size of the animation uniform buffer in number of struct elements (default 20)
+    uint32_t animBufferSize = 20;
+};
+
+///////////////////////////////////////////////////////////
+/// \brief Renderer configuration parameters
+///
+///////////////////////////////////////////////////////////
+struct RendererConfig {
+    /// Texture format of the target framebuffer. This can not be changed
+    /// after the renderer is initialized. (Default is automatically set to
+    /// the default framebuffer format of the render device).
+    TextureFormat targetFormat = TextureFormat::Unknown;
+
+    /// Max number of shadow cascade maps
+    uint32_t maxShadowCascades = 3;
+
+    /// Buffer configuration for the renderer
+    RendererBufferConfig buffer;
+};
+
+///////////////////////////////////////////////////////////
 /// \brief Manages the 3D rendering pipeline
 ///
 ///////////////////////////////////////////////////////////
@@ -45,9 +77,21 @@ public:
     /// created.
     ///
     /// \param device Render device to use
+    /// \param config Renderer configuration parameters
     ///
     ///////////////////////////////////////////////////////////
-    void initialize(RenderDevice* device);
+    void initialize(RenderDevice* device, const RendererConfig& config = RendererConfig());
+    
+    ///////////////////////////////////////////////////////////
+    /// \brief Perform graphics related updates
+    ///
+    /// This function should be called once per frame, before the render() function.
+    /// Provide the delta time to perform time based updates, such as animations.
+    ///
+    /// \param dt The time since the last frame in seconds
+    ///
+    ///////////////////////////////////////////////////////////
+    void update(float dt);
 
     ///////////////////////////////////////////////////////////
     /// \brief Render everything currently in render pipeline
@@ -94,7 +138,7 @@ public:
     const Vector3f& getAmbient() const;
 
 private:
-    void createRenderPass();
+    void createRenderPass(TextureFormat targetFormat);
     
 	///////////////////////////////////////////////////////////
 	/// \brief Perform a render pass

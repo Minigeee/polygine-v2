@@ -317,6 +317,14 @@ void RenderContext::setRenderTarget(Framebuffer& framebuffer) {
 }
 
 ///////////////////////////////////////////////////////////
+void RenderContext::setResourceStates(ResourceBinding& binding) {
+    // Set resource states for the binding
+    m_device->m_deviceContext->TransitionShaderResources(
+        static_cast<IShaderResourceBinding*>(binding.getResource())
+    );
+}
+
+///////////////////////////////////////////////////////////
 void RenderContext::setRenderPassMode(bool enabled) {
     m_device->m_transitionMode =
         enabled ? RESOURCE_STATE_TRANSITION_MODE_VERIFY

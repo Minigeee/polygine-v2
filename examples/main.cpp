@@ -11,8 +11,11 @@
 #include <ply/engine/Window.h>
 #include <ply/math/Transform.h>
 
+#include <ply/graphics/Camera.h>
 #include <ply/graphics/Pipeline.h>
 #include <ply/graphics/RenderDevice.h>
+#include <ply/graphics/RenderSystem.h>
+#include <ply/graphics/Renderer.h>
 
 #include <Common/interface/AdvancedMath.hpp>
 #include <iostream>
@@ -252,192 +255,241 @@ void populateInstanceBuffer(ply::Buffer& buffer, size_t gridSize) {
     buffer.update(instanceData);
 }
 
-ply::Matrix4f createProjViewMatrix(float time) {
-    ply::Matrix4f V = ply::lookAt(
-        ply::Vector3f(2.0f, 2.0f, -5.0f),
-        ply::Vector3f(0.0f, 0.0f, 0.0f),
-        ply::Vector3f(0.0f, 1.0f, 0.0f)
-    );
+constexpr size_t GRID_SIZE = 5;
+constexpr size_t MAX_INSTANCES = GRID_SIZE * GRID_SIZE * GRID_SIZE;
 
-    ply::Matrix4f P = ply::perspective(45.0f, 8.0f / 6.0f, 0.1f, 100.0f);
+class TestSystem : public ply::RenderSystem {
+public:
+    void initialize(const ply::RenderSystem::Init& context) override {
+        m_vertexShader =
+            m_device->shader()
+                .type(ply::Shader::Vertex)
+                .file("cube.vsh")
+                .load();
+        m_pixelShader =
+            m_device->shader().type(ply::Shader::Pixel).file("cube.psh").load();
 
-    return P * V;
-}
+        m_pipeline =
+            m_device->pipeline()
+                .renderPass(context.renderPass)
+                .shader(&m_vertexShader)
+                .shader(&m_pixelShader)
+                .addInputLayout(0, 0, 3, ply::Type::Float32)       // Position
+                .addInputLayout(1, 0, 2, ply::Type::Float32)       // UV
+                .addInputLayout(2, 1, 4, ply::Type::Float32, true) // Instance
+                                                                   // matrix
+                .addInputLayout(3, 1, 4, ply::Type::Float32, true)
+                .addInputLayout(4, 1, 4, ply::Type::Float32, true)
+                .addInputLayout(5, 1, 4, ply::Type::Float32, true)
+                .addInputLayout(6, 1, 1, ply::Type::Float32, true) // Tex index
+                .addVariable(
+                    "g_Texture",
+                    ply::Shader::Pixel,
+                    ply::ShaderResourceType::Mutable
+                ) // Texture
+                .addSampler("g_Texture", ply::Shader::Pixel)
+                .cull(ply::CullMode::Back)
+                .create();
+
+        // Create constants buffer
+        m_constantsBuffer =
+            m_device->buffer()
+                .bind(ply::ResourceBind::UniformBuffer)
+                .usage(ply::ResourceUsage::Dynamic)
+                .access(ply::ResourceAccess::Write)
+                .size(2 * sizeof(ply::Matrix4f))
+                .create();
+
+        // Static variables
+        m_pipeline.setStaticVariable(
+            ply::Shader::Vertex,
+            "Constants",
+            m_constantsBuffer
+        );
+        m_pipeline.setStaticVariable(
+            ply::Shader::Vertex,
+            "Camera",
+            context.buffers.camera
+        );
+
+        // Vertex buffer
+        m_vertexBuffer = createVertexBuffer(*m_device);
+        // Index buffer
+        m_indexBuffer = createIndexBuffer(*m_device);
+
+        // Instance buffer
+        m_instanceBuffer =
+            m_device->buffer()
+                .bind(ply::ResourceBind::VertexBuffer)
+                .usage(ply::ResourceUsage::Default)
+                .size(MAX_INSTANCES * sizeof(InstanceData))
+                .create();
+        populateInstanceBuffer(m_instanceBuffer, GRID_SIZE);
+
+        // Create default resource binding
+        m_binding = m_pipeline.createResourceBinding();
+
+        // Load image texture
+        ply::Image image1("examples/assets/DGLogo1.png");
+        ply::Image image2("examples/assets/DGLogo2.png");
+        ply::Image image3("examples/assets/DGLogo3.png");
+        // clang-format off
+        m_texture = m_device->texture()
+            .from(image1)
+            .from(image2)
+            .from(image3)
+            .mips(5)
+            .create();
+        // clang-format on
+        m_binding.set(ply::Shader::Pixel, "g_Texture", m_texture);
+
+        // Register resources
+        addResource(m_constantsBuffer, ply::ResourceState::ConstantBuffer);
+        addResource(m_instanceBuffer, ply::ResourceState::VertexBuffer);
+        addResource(m_vertexBuffer, ply::ResourceState::VertexBuffer);
+        addResource(m_indexBuffer, ply::ResourceState::IndexBuffer);
+        addResource(m_texture, ply::ResourceState::ShaderResource);
+    }
+
+    void update(float dt) override {
+        ply::Matrix4f* mapped = (ply::Matrix4f*)m_constantsBuffer.map(
+            ply::MapMode::Write,
+            ply::MapFlag::Discard
+        );
+
+        mapped[0] = glm::rotate(
+            glm::mat4(1.0f),
+            glm::radians((float)m_clock.getElapsedTime().seconds() * 45.0f),
+            ply::Vector3f{0, 1, 0}
+        );
+
+        m_constantsBuffer.unmap();
+    }
+
+    void render(ply::RenderPassContext& context) override {
+        m_device->context.setPipeline(m_pipeline);
+        m_device->context.setVertexBuffers({&m_vertexBuffer, &m_instanceBuffer}
+        );
+        m_device->context.setIndexBuffer(m_indexBuffer);
+        m_device->context.setResourceBinding(m_binding);
+        m_device->context.drawIndexed(36, MAX_INSTANCES);
+    }
+
+private:
+    ply::Clock m_clock;
+    ply::Pipeline m_pipeline;
+    ply::ResourceBinding m_binding;
+    ply::Shader m_vertexShader;
+    ply::Shader m_pixelShader;
+    ply::Buffer m_constantsBuffer;
+    ply::Buffer m_instanceBuffer;
+    ply::Buffer m_vertexBuffer;
+    ply::Buffer m_indexBuffer;
+    ply::Texture m_texture;
+};
 
 int main(int argc, char* argv[]) {
     // WIP :
     // - [X] Create minified resource state enum
     // - [ ] Create resource state list util class
     // - [ ] Add renderPass() option to pipeline
-    // - [ ] Set up render pass, pipeline, shaders, buffers for renderer (deferred renderer)
+    // - [ ] Set up render pass, pipeline, shaders, buffers for renderer
+    // (deferred renderer)
     // - [ ] Set up render function
-    //   - [ ] Update render system class: they need to define a list of resource states
+    //   - [ ] Update render system class: they need to define a list of
+    //   resource states
+
+    // Logger
+    loguru::add_file(
+        "game.log",
+        loguru::FileMode::Truncate,
+        loguru::Verbosity_1
+    );
 
     // ecsTest();
     // schedulerTest();
+    {
+        ply::Window window;
+        window.create(800, 600, "Window");
 
-    ply::Window window;
-    window.create(800, 600, "Window");
+        // Enable gamepad support
+        ply::Gamepad::enable();
 
-    // Enable gamepad support
-    ply::Gamepad::enable();
+        // Initialize renderer
+        ply::RenderDevice device;
+        device.initialize(&window);
 
-    // Initialize renderer
-    ply::RenderDevice device;
-    device.initialize(&window);
+        // Renderer
+        ply::Renderer renderer;
+        renderer.initialize(&device);
 
-    // Create framebuffer
-    auto windowSize = window.getSize();
-    ply::Framebuffer framebuffer = device.framebuffer();
-    framebuffer.attachColor(windowSize);
-    framebuffer.attachDepth(windowSize);
+        TestSystem testSystem;
+        renderer.add(&testSystem);
 
-    auto vs = device.shader().type(ply::Shader::Vertex).file("cube.vsh").load();
-    auto ps = device.shader().type(ply::Shader::Pixel).file("cube.psh").load();
+        // Camera
+        ply::Camera camera;
+        camera.setPosition({0.0f, 1.0f, -3.0f});
+        camera.setDirection({0.0f, 0.0f, 1.0f});
+        camera.setPerspective(90.0f, 8.0f / 6.0f, 0.1f, 100.0f);
 
-    auto pipeline =
-        device.pipeline()
-            .targetFormat(framebuffer)
-            .shader(&vs)
-            .shader(&ps)
-            .addInputLayout(0, 0, 3, ply::Type::Float32)       // Position
-            .addInputLayout(1, 0, 2, ply::Type::Float32)       // UV
-            .addInputLayout(2, 1, 4, ply::Type::Float32, true) // Instance
-                                                               // matrix
-            .addInputLayout(3, 1, 4, ply::Type::Float32, true)
-            .addInputLayout(4, 1, 4, ply::Type::Float32, true)
-            .addInputLayout(5, 1, 4, ply::Type::Float32, true)
-            .addInputLayout(6, 1, 1, ply::Type::Float32, true) // Tex index
-            .addVariable(
-                "g_Texture",
-                ply::Shader::Pixel,
-                ply::ShaderResourceType::Mutable
-            ) // Texture
-            .addSampler("g_Texture", ply::Shader::Pixel)
-            .cull(ply::CullMode::Back)
-            .create();
+        window.addListener<ply::Event::MouseButton>(
+            [](const ply::Event::MouseButton& event) {
+                std::cout << "Mouse button " << (int)event.button << " "
+                          << (int)event.action << "\n";
+            }
+        );
 
-    // Create constants buffer
-    auto buffer =
-        device.buffer()
-            .bind(ply::ResourceBind::UniformBuffer)
-            .usage(ply::ResourceUsage::Dynamic)
-            .access(ply::ResourceAccess::Write)
-            .size(2 * sizeof(ply::Matrix4f))
-            .create();
-    pipeline.setStaticVariable(ply::Shader::Vertex, "Constants", buffer);
+        window.addListener<ply::Event::Key>([](const ply::Event::Key& event) {
+            std::cout << "Key " << (int)event.key << " " << (int)event.action
+                      << "\n";
+        });
 
-    // Vertex buffer
-    auto vertexBuffer = createVertexBuffer(device);
-    // Index buffer
-    auto indexBuffer = createIndexBuffer(device);
+        ply::Gamepad::getHandler().addListener<ply::Event::GamepadConnection>(
+            [](const ply::Event::GamepadConnection& event) {
+                std::cout << "Gamepad connection " << (int)event.id << " "
+                          << (int)event.connected << "\n";
+            }
+        );
 
-    // Instance buffer
-    constexpr size_t GRID_SIZE = 5;
-    constexpr size_t MAX_INSTANCES = GRID_SIZE * GRID_SIZE * GRID_SIZE;
-    auto instanceBuffer =
-        device.buffer()
-            .bind(ply::ResourceBind::VertexBuffer)
-            .usage(ply::ResourceUsage::Default)
-            .size(MAX_INSTANCES * sizeof(InstanceData))
-            .create();
-    populateInstanceBuffer(instanceBuffer, GRID_SIZE);
+        auto gamepads = ply::Gamepad::getDevices();
 
-    // Create default resource binding
-    auto binding = pipeline.createResourceBinding();
+        ply::Clock clock;
 
-    // Load image texture
-    ply::Image image1("examples/assets/DGLogo1.png");
-    ply::Image image2("examples/assets/DGLogo2.png");
-    ply::Image image3("examples/assets/DGLogo3.png");
-    // clang-format off
-    auto texture = device.texture()
-        .from(image1)
-        .from(image2)
-        .from(image3)
-        .mips(5)
-        .create();
-    // clang-format on
-    binding.set(ply::Shader::Pixel, "g_Texture", texture);
+        while (!window.shouldClose()) {
+            ply::Input::poll();
 
-    window.addListener<ply::Event::MouseButton>(
-        [](const ply::Event::MouseButton& event) {
-            std::cout << "Mouse button " << (int)event.button << " "
-                      << (int)event.action << "\n";
+            if (gamepads.size() > 0) {
+                if (ply::Gamepad::isButtonPressed(
+                        gamepads[0],
+                        ply::Gamepad::Button::South
+                    ))
+                    std::cout << "Gamepad button pressed B\n";
+                if (ply::Gamepad::isButtonPressed(
+                        gamepads[0],
+                        ply::Gamepad::Button::East
+                    ))
+                    std::cout << "Gamepad button pressed A\n";
+                if (ply::Gamepad::isButtonPressed(
+                        gamepads[0],
+                        ply::Gamepad::Button::North
+                    ))
+                    std::cout << "Gamepad button pressed X\n";
+                if (ply::Gamepad::isButtonPressed(
+                        gamepads[0],
+                        ply::Gamepad::Button::West
+                    ))
+                    std::cout << "Gamepad button pressed Y\n";
+            }
+
+            // Updates
+            float dt = clock.restart().seconds();
+            renderer.update(dt);
+
+            // Render
+            renderer.render(camera);
+
+            device.context.present();
         }
-    );
-
-    window.addListener<ply::Event::Key>([](const ply::Event::Key& event) {
-        std::cout << "Key " << (int)event.key << " " << (int)event.action
-                  << "\n";
-    });
-
-    ply::Gamepad::getHandler().addListener<ply::Event::GamepadConnection>(
-        [](const ply::Event::GamepadConnection& event) {
-            std::cout << "Gamepad connection " << (int)event.id << " "
-                      << (int)event.connected << "\n";
-        }
-    );
-
-    auto gamepads = ply::Gamepad::getDevices();
-
-    ply::Clock clock;
-
-    while (!window.shouldClose()) {
-        ply::Input::poll();
-
-        if (gamepads.size() > 0) {
-            if (ply::Gamepad::isButtonPressed(
-                    gamepads[0],
-                    ply::Gamepad::Button::South
-                ))
-                std::cout << "Gamepad button pressed B\n";
-            if (ply::Gamepad::isButtonPressed(
-                    gamepads[0],
-                    ply::Gamepad::Button::East
-                ))
-                std::cout << "Gamepad button pressed A\n";
-            if (ply::Gamepad::isButtonPressed(
-                    gamepads[0],
-                    ply::Gamepad::Button::North
-                ))
-                std::cout << "Gamepad button pressed X\n";
-            if (ply::Gamepad::isButtonPressed(
-                    gamepads[0],
-                    ply::Gamepad::Button::West
-                ))
-                std::cout << "Gamepad button pressed Y\n";
-        }
-
-        // Update transform matrix
-        float time = clock.getElapsedTime().seconds();
-        {
-            ply::Matrix4f* mapped = (ply::Matrix4f*)buffer.map(
-                ply::MapMode::Write,
-                ply::MapFlag::Discard
-            );
-
-            auto projView = createProjViewMatrix(time);
-            mapped[0] = projView;
-
-            mapped[1] = glm::rotate(
-                glm::mat4(1.0f),
-                glm::radians(time * 45.0f),
-                ply::Vector3f{0, 1, 0}
-            );
-
-            buffer.unmap();
-        }
-
-        device.context.setRenderTarget(ply::Framebuffer::Default);
-        device.context.clear(ply::ClearFlag::Color | ply::ClearFlag::Depth);
-
-        device.context.setPipeline(pipeline);
-        device.context.setVertexBuffers({&vertexBuffer, &instanceBuffer});
-        device.context.setIndexBuffer(indexBuffer);
-        device.context.setResourceBinding(binding);
-        device.context.drawIndexed(36, MAX_INSTANCES);
-        device.context.present();
     }
 
     return 0;

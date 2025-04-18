@@ -35,21 +35,8 @@ void Camera::setPosition(const Vector3f& pos) {
 }
 
 ///////////////////////////////////////////////////////////
-void Camera::setPosition(float x, float y, float z) {
-    m_position = Vector3f(x, y, z);
-    m_isViewDirty = true;
-}
-
-///////////////////////////////////////////////////////////
 void Camera::setDirection(const Vector3f& dir) {
     m_direction = normalize(dir);
-    m_rightDir = normalize(cross(m_direction, Vector3f(0.0f, 1.0f, 0.0f)));
-    m_isViewDirty = true;
-}
-
-///////////////////////////////////////////////////////////
-void Camera::setDirection(float x, float y, float z) {
-    m_direction = normalize(Vector3f(x, y, z));
     m_rightDir = normalize(cross(m_direction, Vector3f(0.0f, 1.0f, 0.0f)));
     m_isViewDirty = true;
 }
@@ -71,11 +58,6 @@ void Camera::setRotation(const Vector2f& rotation) {
 }
 
 ///////////////////////////////////////////////////////////
-void Camera::setRotation(float x, float y) {
-    setRotation(Vector2f(x, y));
-}
-
-///////////////////////////////////////////////////////////
 void Camera::setZoom(float zoom) {
     m_zoom = zoom;
     m_isProjDirty = true;
@@ -84,12 +66,6 @@ void Camera::setZoom(float zoom) {
 ///////////////////////////////////////////////////////////
 void Camera::move(const Vector3f& pos) {
     m_position += pos;
-    m_isViewDirty = true;
-}
-
-///////////////////////////////////////////////////////////
-void Camera::move(float x, float y, float z) {
-    m_position += Vector3f(x, y, z);
     m_isViewDirty = true;
 }
 
