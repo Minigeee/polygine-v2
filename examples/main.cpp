@@ -17,6 +17,9 @@
 #include <ply/graphics/RenderSystem.h>
 #include <ply/graphics/Renderer.h>
 
+#include <ply/components/Lights.h>
+#include <ply/components/Spatial.h>
+
 #include <Common/interface/AdvancedMath.hpp>
 #include <iostream>
 #include <ply/math/Functions.h>
@@ -136,38 +139,42 @@ ply::Buffer createVertexBuffer(ply::RenderDevice& device) {
     struct Vertex {
         ply::Vector3f pos;
         ply::Vector2f uv;
+        ply::Vector3f normal;
     };
+
+    // clang-format off
     constexpr Vertex CubeVerts[] = {
-        {ply::Vector3f{-1, -1, -1}, ply::Vector2f{0, 1}},
-        {ply::Vector3f{-1, +1, -1}, ply::Vector2f{0, 0}},
-        {ply::Vector3f{+1, +1, -1}, ply::Vector2f{1, 0}},
-        {ply::Vector3f{+1, -1, -1}, ply::Vector2f{1, 1}},
+        {ply::Vector3f{-1, -1, -1}, ply::Vector2f{0, 1}, ply::Vector3f{0, 0, -1}},
+        {ply::Vector3f{-1, +1, -1}, ply::Vector2f{0, 0}, ply::Vector3f{0, 0, -1}},
+        {ply::Vector3f{+1, +1, -1}, ply::Vector2f{1, 0}, ply::Vector3f{0, 0, -1}},
+        {ply::Vector3f{+1, -1, -1}, ply::Vector2f{1, 1}, ply::Vector3f{0, 0, -1}},
 
-        {ply::Vector3f{-1, -1, -1}, ply::Vector2f{0, 1}},
-        {ply::Vector3f{-1, -1, +1}, ply::Vector2f{0, 0}},
-        {ply::Vector3f{+1, -1, +1}, ply::Vector2f{1, 0}},
-        {ply::Vector3f{+1, -1, -1}, ply::Vector2f{1, 1}},
+        {ply::Vector3f{-1, -1, -1}, ply::Vector2f{0, 1}, ply::Vector3f{0, -1, 0}},
+        {ply::Vector3f{-1, -1, +1}, ply::Vector2f{0, 0}, ply::Vector3f{0, -1, 0}},
+        {ply::Vector3f{+1, -1, +1}, ply::Vector2f{1, 0}, ply::Vector3f{0, -1, 0}},
+        {ply::Vector3f{+1, -1, -1}, ply::Vector2f{1, 1}, ply::Vector3f{0, -1, 0}},
 
-        {ply::Vector3f{+1, -1, -1}, ply::Vector2f{0, 1}},
-        {ply::Vector3f{+1, -1, +1}, ply::Vector2f{1, 1}},
-        {ply::Vector3f{+1, +1, +1}, ply::Vector2f{1, 0}},
-        {ply::Vector3f{+1, +1, -1}, ply::Vector2f{0, 0}},
+        {ply::Vector3f{+1, -1, -1}, ply::Vector2f{0, 1}, ply::Vector3f{1, 0, 0}},
+        {ply::Vector3f{+1, -1, +1}, ply::Vector2f{1, 1}, ply::Vector3f{1, 0, 0}},
+        {ply::Vector3f{+1, +1, +1}, ply::Vector2f{1, 0}, ply::Vector3f{1, 0, 0}},
+        {ply::Vector3f{+1, +1, -1}, ply::Vector2f{0, 0}, ply::Vector3f{1, 0, 0}},
 
-        {ply::Vector3f{+1, +1, -1}, ply::Vector2f{0, 1}},
-        {ply::Vector3f{+1, +1, +1}, ply::Vector2f{0, 0}},
-        {ply::Vector3f{-1, +1, +1}, ply::Vector2f{1, 0}},
-        {ply::Vector3f{-1, +1, -1}, ply::Vector2f{1, 1}},
+        {ply::Vector3f{+1, +1, -1}, ply::Vector2f{0, 1}, ply::Vector3f{0, 1, 0}},
+        {ply::Vector3f{+1, +1, +1}, ply::Vector2f{0, 0}, ply::Vector3f{0, 1, 0}},
+        {ply::Vector3f{-1, +1, +1}, ply::Vector2f{1, 0}, ply::Vector3f{0, 1, 0}},
+        {ply::Vector3f{-1, +1, -1}, ply::Vector2f{1, 1}, ply::Vector3f{0, 1, 0}},
 
-        {ply::Vector3f{-1, +1, -1}, ply::Vector2f{1, 0}},
-        {ply::Vector3f{-1, +1, +1}, ply::Vector2f{0, 0}},
-        {ply::Vector3f{-1, -1, +1}, ply::Vector2f{0, 1}},
-        {ply::Vector3f{-1, -1, -1}, ply::Vector2f{1, 1}},
+        {ply::Vector3f{-1, +1, -1}, ply::Vector2f{1, 0}, ply::Vector3f{-1, 0, 0}},
+        {ply::Vector3f{-1, +1, +1}, ply::Vector2f{0, 0}, ply::Vector3f{-1, 0, 0}},
+        {ply::Vector3f{-1, -1, +1}, ply::Vector2f{0, 1}, ply::Vector3f{-1, 0, 0}},
+        {ply::Vector3f{-1, -1, -1}, ply::Vector2f{1, 1}, ply::Vector3f{-1, 0, 0}},
 
-        {ply::Vector3f{-1, -1, +1}, ply::Vector2f{1, 1}},
-        {ply::Vector3f{+1, -1, +1}, ply::Vector2f{0, 1}},
-        {ply::Vector3f{+1, +1, +1}, ply::Vector2f{0, 0}},
-        {ply::Vector3f{-1, +1, +1}, ply::Vector2f{1, 0}},
+        {ply::Vector3f{-1, -1, +1}, ply::Vector2f{1, 1}, ply::Vector3f{0, 0, 1}},
+        {ply::Vector3f{+1, -1, +1}, ply::Vector2f{0, 1}, ply::Vector3f{0, 0, 1}},
+        {ply::Vector3f{+1, +1, +1}, ply::Vector2f{0, 0}, ply::Vector3f{0, 0, 1}},
+        {ply::Vector3f{-1, +1, +1}, ply::Vector2f{1, 0}, ply::Vector3f{0, 0, 1}},
     };
+    // clang-format on
 
     return device.buffer()
         .bind(ply::ResourceBind::VertexBuffer)
@@ -276,12 +283,13 @@ public:
                 .shader(&m_pixelShader)
                 .addInputLayout(0, 0, 3, ply::Type::Float32)       // Position
                 .addInputLayout(1, 0, 2, ply::Type::Float32)       // UV
-                .addInputLayout(2, 1, 4, ply::Type::Float32, true) // Instance
+                .addInputLayout(2, 0, 3, ply::Type::Float32)       // Normal
+                .addInputLayout(3, 1, 4, ply::Type::Float32, true) // Instance
                                                                    // matrix
-                .addInputLayout(3, 1, 4, ply::Type::Float32, true)
                 .addInputLayout(4, 1, 4, ply::Type::Float32, true)
                 .addInputLayout(5, 1, 4, ply::Type::Float32, true)
-                .addInputLayout(6, 1, 1, ply::Type::Float32, true) // Tex index
+                .addInputLayout(6, 1, 4, ply::Type::Float32, true)
+                .addInputLayout(7, 1, 1, ply::Type::Float32, true) // Tex index
                 .addVariable(
                     "g_Texture",
                     ply::Shader::Pixel,
@@ -390,14 +398,14 @@ private:
 
 int main(int argc, char* argv[]) {
     // WIP :
-    // - [X] Create minified resource state enum
-    // - [ ] Create resource state list util class
-    // - [ ] Add renderPass() option to pipeline
-    // - [ ] Set up render pass, pipeline, shaders, buffers for renderer
-    // (deferred renderer)
-    // - [ ] Set up render function
-    //   - [ ] Update render system class: they need to define a list of
-    //   resource states
+    // - [ ] Implement ambient + directional lighting
+    // - [ ] Implement point light volumes
+    // - [ ] Clean up:
+    //   - [ ] Implement constant buffer offsets
+    //   - [ ] Get clear color from render device
+    //   - [ ] Handle resizes
+    //   - [ ] Add name function to gpu resource builders
+    //   - [ ] Handle when camera is inside point light volume
 
     // Logger
     loguru::add_file(
@@ -426,11 +434,39 @@ int main(int argc, char* argv[]) {
         TestSystem testSystem;
         renderer.add(&testSystem);
 
+        // World
+        ply::World world;
+        renderer.setWorld(&world);
+
         // Camera
         ply::Camera camera;
-        camera.setPosition({0.0f, 1.0f, -3.0f});
+        camera.setPosition({0.0f, 0.0f, -3.0f});
         camera.setDirection({0.0f, 0.0f, 1.0f});
         camera.setPerspective(90.0f, 8.0f / 6.0f, 0.1f, 100.0f);
+
+        // Lights
+        world.entity()
+            .add(ply::Transform())
+            .add(ply::PointLight())
+            .create([](ply::Transform& t, ply::PointLight& light) {
+                t.position = {0.0f, 0.0f, 0.0f};
+                light.coefficients.y *= 10.0f; // Reduce light intensity
+                light.coefficients.z *= 10.0f;
+            });
+
+        // Move it around
+        ply::Clock persistentClock;
+        world.system().match<ply::Transform, ply::PointLight>().each(
+            [&persistentClock](
+                ply::QueryIterator it,
+                ply::Transform& t,
+                ply::PointLight& light
+            ) {
+                t.position.y =
+                    0.5f *
+                    std::sin(persistentClock.getElapsedTime().seconds() * 2.0f);
+            }
+        );
 
         window.addListener<ply::Event::MouseButton>(
             [](const ply::Event::MouseButton& event) {
@@ -483,6 +519,7 @@ int main(int argc, char* argv[]) {
 
             // Updates
             float dt = clock.restart().seconds();
+            world.tick();
             renderer.update(dt);
 
             // Render

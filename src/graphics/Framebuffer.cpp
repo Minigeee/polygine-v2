@@ -11,13 +11,15 @@ Framebuffer Framebuffer::Default;
 
 ///////////////////////////////////////////////////////////
 Framebuffer::Framebuffer() :
-    m_device(nullptr) {
+    m_device(nullptr),
+    m_size(0) {
     // No device, no attachments
 }
 
 ///////////////////////////////////////////////////////////
 Framebuffer::Framebuffer(RenderDevice* device) :
-    m_device(device) {
+    m_device(device),
+    m_size(0) {
     // No device, no attachments
 }
 
@@ -46,6 +48,7 @@ Framebuffer::Framebuffer(Framebuffer&& other) noexcept {
     m_colorTextureViews = std::move(other.m_colorTextureViews);
     m_depthTexture = other.m_depthTexture;
     m_depthTextureView = other.m_depthTextureView;
+    m_size = other.m_size;
 
     other.m_device = nullptr;
     other.m_depthTexture = {};
@@ -60,6 +63,7 @@ Framebuffer& Framebuffer::operator=(Framebuffer&& other) noexcept {
         m_colorTextureViews = std::move(other.m_colorTextureViews);
         m_depthTexture = other.m_depthTexture;
         m_depthTextureView = other.m_depthTextureView;
+        m_size = other.m_size;
 
         other.m_device = nullptr;
         other.m_depthTexture = {};
@@ -71,10 +75,13 @@ Framebuffer& Framebuffer::operator=(Framebuffer&& other) noexcept {
 ///////////////////////////////////////////////////////////
 void Framebuffer::attachColor(Texture* texture) {
     m_colorTextures.push_back({texture, false});
-    m_colorTextureViews.push_back(
-        static_cast<ITexture*>(texture->getResource())
-            ->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET)
-    );
+
+    auto* tex = TEXTURE(texture->getResource());
+    m_colorTextureViews.push_back(tex->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET
+    ));
+
+    const auto& desc = tex->GetDesc();
+    m_size = {desc.Width, desc.Height};
 }
 
 ///////////////////////////////////////////////////////////
@@ -104,14 +111,20 @@ Texture* Framebuffer::attachColor(
             ->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET)
     );
 
+    m_size = size;
+
     return texture;
 }
 
 ///////////////////////////////////////////////////////////
 void Framebuffer::attachDepth(Texture* texture) {
     m_depthTexture = {texture, false};
-    m_depthTextureView = static_cast<ITexture*>(texture->getResource())
-                             ->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
+
+    auto* tex = TEXTURE(texture->getResource());
+    m_depthTextureView = tex->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
+
+    const auto& desc = tex->GetDesc();
+    m_size = {desc.Width, desc.Height};
 }
 
 ///////////////////////////////////////////////////////////
@@ -139,6 +152,8 @@ Texture* Framebuffer::attachDepth(
     m_depthTextureView = static_cast<ITexture*>(texture->getResource())
                              ->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
 
+    m_size = size;
+
     return texture;
 }
 
@@ -157,6 +172,11 @@ Texture* Framebuffer::getColorTexture(size_t index) const {
 ///////////////////////////////////////////////////////////
 Texture* Framebuffer::getDepthTexture() const {
     return m_depthTexture.m_texture;
+}
+
+///////////////////////////////////////////////////////////
+const Vector2u& Framebuffer::getSize() const {
+    return m_size;
 }
 
 ///////////////////////////////////////////////////////////

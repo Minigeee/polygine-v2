@@ -1,12 +1,8 @@
+#include "camera.fxh"
+
 cbuffer Constants
 {
     float4x4 g_Rotation;
-};
-
-cbuffer Camera
-{
-    float4x4 g_projView;
-    float4 g_cameraPos;
 };
 
 struct VSInput
@@ -14,19 +10,21 @@ struct VSInput
     // Vertex attributes
     float3 Pos      : ATTRIB0; 
     float2 UV       : ATTRIB1;
+    float3 Normal   : ATTRIB2;
 
     // Instance attributes
-    float4 MtrxRow0 : ATTRIB2;
-    float4 MtrxRow1 : ATTRIB3;
-    float4 MtrxRow2 : ATTRIB4;
-    float4 MtrxRow3 : ATTRIB5;
-    float TexArrInd : ATTRIB6;
+    float4 MtrxRow0 : ATTRIB3;
+    float4 MtrxRow1 : ATTRIB4;
+    float4 MtrxRow2 : ATTRIB5;
+    float4 MtrxRow3 : ATTRIB6;
+    float TexArrInd : ATTRIB7;
 };
 
 struct PSInput 
 { 
     float4 Pos : SV_POSITION; 
-    float2 UV  : TEX_COORD; 
+    float2 UV  : TEX_COORD;
+    float3 Normal  : NORMAL; 
     float TexIndex : TEX_ARRAY_INDEX;
 };
 
@@ -39,10 +37,12 @@ void main(in  VSInput VSIn,
     // HLSL matrices are row-major while GLSL matrices are column-major. We will
     // use convenience function MatrixFromRows() appropriately defined by the engine
     float4x4 InstanceMatr = MatrixFromRows(VSIn.MtrxRow0, VSIn.MtrxRow1, VSIn.MtrxRow2, VSIn.MtrxRow3);
+    float4x4 worldTransform = InstanceMatr * g_Rotation;
     // Apply rotation
-    float4 TransformedPos = InstanceMatr * g_Rotation * float4(VSIn.Pos, 1.0);
+    float4 TransformedPos = worldTransform * float4(VSIn.Pos, 1.0);
     // Apply view-projection matrix
     PSIn.Pos = g_projView * TransformedPos;
     PSIn.UV  = VSIn.UV;
+    PSIn.Normal = normalize((worldTransform * float4(VSIn.Normal, 0.0)).xyz); // Transform normal to world space and normalize it
     PSIn.TexIndex = VSIn.TexArrInd;
 }

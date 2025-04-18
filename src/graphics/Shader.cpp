@@ -133,10 +133,14 @@ ShaderBuilder& ShaderBuilder::entryPoint(const char* entryPoint) {
 
 ///////////////////////////////////////////////////////////
 ShaderBuilder& ShaderBuilder::language(Shader::Language language) {
-    m_desc->SourceLanguage =
-        language == Shader::Language::Hlsl
-            ? SHADER_SOURCE_LANGUAGE_HLSL
-            : SHADER_SOURCE_LANGUAGE_GLSL;
+    if (language == Shader::Language::Hlsl) {
+        m_desc->SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
+    } else {
+        m_desc->SourceLanguage = SHADER_SOURCE_LANGUAGE_GLSL;
+        // Enable includes
+        m_desc->GLSLExtensions = "#extension GL_ARB_shading_language_include : enable\n";
+    }
+    
     return *this;
 }
 

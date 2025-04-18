@@ -4,8 +4,6 @@
 #include <ply/core/PoolAllocator.h>
 #include <ply/graphics/RenderDevice.h>
 
-#define BUFFER(x) static_cast<Diligent::IBuffer*>(x)
-
 namespace ply {
 
 ///////////////////////////////////////////////////////////

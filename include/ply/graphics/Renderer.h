@@ -6,32 +6,37 @@
 #include <ply/graphics/Camera.h>
 #include <ply/graphics/Framebuffer.h>
 #include <ply/graphics/Pipeline.h>
-#include <ply/graphics/Shader.h>
 #include <ply/graphics/RenderPass.h>
+#include <ply/graphics/Shader.h>
+#include <ply/ecs/Query.h>
 
 #include <vector>
 
 namespace ply {
 
 class RenderSystem;
+class World;
 
 namespace priv {
     struct RendererImpl;
     struct GBuffer;
-}
+} // namespace priv
 
 ///////////////////////////////////////////////////////////
 /// \brief Buffer size config
 ///
 ///////////////////////////////////////////////////////////
 struct RendererBufferConfig {
-    /// Size of the light uniform buffer in number of struct elements (default 10)
+    /// Size of the light uniform buffer in number of struct elements (default
+    /// 10)
     uint32_t lightBufferSize = 10;
 
-    /// Size of the camera uniform buffer in number of struct elements (default 10)
+    /// Size of the camera uniform buffer in number of struct elements (default
+    /// 10)
     uint32_t cameraBufferSize = 10;
 
-    /// Size of the animation uniform buffer in number of struct elements (default 20)
+    /// Size of the animation uniform buffer in number of struct elements
+    /// (default 20)
     uint32_t animBufferSize = 20;
 };
 
@@ -44,6 +49,9 @@ struct RendererConfig {
     /// after the renderer is initialized. (Default is automatically set to
     /// the default framebuffer format of the render device).
     TextureFormat targetFormat = TextureFormat::Unknown;
+
+    /// Max number of point lights that can be rendered in a single frame
+    uint32_t maxPointLights = 500;
 
     /// Max number of shadow cascade maps
     uint32_t maxShadowCascades = 3;
@@ -80,13 +88,17 @@ public:
     /// \param config Renderer configuration parameters
     ///
     ///////////////////////////////////////////////////////////
-    void initialize(RenderDevice* device, const RendererConfig& config = RendererConfig());
-    
+    void initialize(
+        RenderDevice* device,
+        const RendererConfig& config = RendererConfig()
+    );
+
     ///////////////////////////////////////////////////////////
     /// \brief Perform graphics related updates
     ///
-    /// This function should be called once per frame, before the render() function.
-    /// Provide the delta time to perform time based updates, such as animations.
+    /// This function should be called once per frame, before the render()
+    /// function. Provide the delta time to perform time based updates, such as
+    /// animations.
     ///
     /// \param dt The time since the last frame in seconds
     ///
@@ -124,26 +136,28 @@ public:
     void add(RenderSystem* system);
 
     ///////////////////////////////////////////////////////////
-    /// \brief Set ambient color
+    /// \brief Set the ECS world to get global rendering data from, including
+    /// lights and shadows.
+    ///
+    /// Setting a world is required for lighting and shadows to work properly.
+    ///
+    /// \param world Pointer to the world to set
     ///
     ///////////////////////////////////////////////////////////
-    void setAmbient(const Vector3f& color);
-
-    ///////////////////////////////////////////////////////////
-    /// \brief Get ambient color
-    ///
-    /// \return Ambient color
-    ///
-    ///////////////////////////////////////////////////////////
-    const Vector3f& getAmbient() const;
+    void setWorld(World* world);
 
 private:
     void createRenderPass(TextureFormat targetFormat);
-    
-	///////////////////////////////////////////////////////////
-	/// \brief Perform a render pass
-	///////////////////////////////////////////////////////////
-	void doRenderPass(Camera& camera, Framebuffer& target, RenderPass::Type pass);
+
+    void setUpLightVolumePipeline(uint32_t maxPointLights);
+
+    void createPointLightBuffers(uint32_t maxPointLights);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Perform a render pass
+    ///////////////////////////////////////////////////////////
+    void
+    doRenderPass(Camera& camera, Framebuffer& target, RenderPass::Type pass);
 
     priv::GBuffer& getGBuffer(Framebuffer& target);
 
@@ -151,8 +165,11 @@ private:
 
     void applyLighting(const priv::GBuffer& gbuffer);
 
+    void updatePointLights();
+
 private:
     RenderDevice* m_device; //!< Pointer to render device
+    World* m_world;         //!< Ecs world
     std::unique_ptr<priv::RendererImpl>
         m_impl;         //!< Pointer to renderer implementation members
     Vector3f m_ambient; //!< Ambient color
@@ -164,12 +181,25 @@ private:
     RenderPass m_renderPass; //!< Render pass wrapper
 
     Pipeline m_deferredPipeline; //!< Pipeline used for deferred rendering
-    Shader m_quadShader;     //!< Shader used to render lighting
+    Shader m_quadShader;         //!< Shader used to render lighting
     Shader m_deferredShader;     //!< Shader used to render lighting
-    Buffer m_cameraBuffer;       //!< Buffer used to store camrea uniforms
+
+    Pipeline m_lightVolumePipeline; //!< Pipeline used for light volumes
+    Shader m_lightVolumeShaderV;    //!< Shader used for light volumes (vertex)
+    Shader m_lightVolumeShaderP;    //!< Shader used for light volumes (pixel)
+    Buffer m_pointLightVertex;      //!< Vertex buffer used for point lights
+    Buffer m_pointLightIndex;       //!< Index buffer used for point lights
+    Buffer m_pointLightInstance;    //!< Instance buffer used for point lights
+    uint32_t m_numPointLights;      //!< Number of point lights
+
+    Buffer m_cameraBuffer;    //!< Buffer used to store camrea uniforms
     Buffer m_lightsBuffer;    //!< Buffer used to store dynamic light uniforms
     Buffer m_shadowBuffer;    //!< Buffer used to store shadow data
     Buffer m_animationBuffer; //!< Buffer used to store animation data
+
+    // World
+    Query m_queryPointLights; //!< Query for point lights in the world
+    Query m_queryDirLights;  //!< Query for directional lights in the world
 };
 
 } // namespace ply

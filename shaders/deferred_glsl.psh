@@ -3,22 +3,64 @@ precision highp int;
 
 layout(input_attachment_index = 0, binding = 0) uniform highp subpassInput g_colorTexture;
 layout(input_attachment_index = 1, binding = 1) uniform highp subpassInput g_depthTexture;
+layout(input_attachment_index = 2, binding = 2) uniform highp subpassInput g_normalTexture;
+layout(input_attachment_index = 3, binding = 3) uniform highp subpassInput g_materialTexture;
 
 layout(location = 0) out vec4 out_Color;
 
-void main()
-{
-    float Depth = subpassLoad(g_depthTexture).x;
-    if (Depth == 1.0)
-    {
+///////////////////////////////////////////////////////////
+struct Material {
+    vec3 diffuse;
+};
+
+///////////////////////////////////////////////////////////
+struct DirLight {
+    vec4 diffuse;
+    vec4 specular;
+    vec4 direction;
+};
+
+///////////////////////////////////////////////////////////
+uniform Lights {
+    vec4 g_ambient;
+    DirLight g_dirLights[MAX_NUM_DIR_LIGHTS];
+    int g_numDirLights;
+};
+
+void main() {
+    float depth = subpassLoad(g_depthTexture).x;
+    if (depth == 1.0) {
         // Discard background pixels
         discard;
     }
 
-    out_Color.rgb = subpassLoad(g_colorTexture).rgb;
-#if CONVERT_PS_OUTPUT_TO_GAMMA
-    // Use fast approximation for gamma correction.
-    out_Color.rgb = pow(out_Color.rgb, vec3(1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2));
-#endif
-    out_Color.a = 1.0;
+    // Load subpass
+    vec4 diffuseRougness = subpassLoad(g_colorTexture);
+    vec4 normalEmmisive = subpassLoad(g_normalTexture);
+    vec4 materialProps = subpassLoad(g_materialTexture);
+
+    Material material;
+    material.diffuse = diffuseRougness.rgb;
+    vec3 normal = normalEmmisive.xyz;
+
+    // Base color
+    vec3 result = material.diffuse * g_ambient.rgb;
+
+    for (int i = 0; i < g_numDirLights; ++i) {
+        float diffFactor = 0.1f;
+
+        // Get diffuse factor
+        float diff = dot(normal, -g_dirLights[i].direction.xyz);
+        float diff1 = diffFactor * diff + diffFactor;
+        float diff2 = (1.0f - diffFactor) * diff + diffFactor;
+        diff = diff < 0.0f ? diff1 : diff2;
+        
+        // Diffuse color
+        vec3 diffuse = diff * g_dirLights[i].diffuse.rgb * material.diffuse;
+        
+        // Add to result
+        result += diffuse;
+    }
+    
+    out_Color = vec4(result, 1.0);
 }

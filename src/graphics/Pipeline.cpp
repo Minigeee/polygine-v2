@@ -48,9 +48,15 @@ void ResourceBinding::set(
             ->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
 
     // Set
-    RESOURCE_BINDING(m_resource)
-        ->GetVariableByName(static_cast<Diligent::SHADER_TYPE>(stages), name)
-        ->Set(view);
+    auto* var =
+        RESOURCE_BINDING(m_resource)
+            ->GetVariableByName(
+                static_cast<Diligent::SHADER_TYPE>(stages),
+                name
+            );
+
+    if (var)
+        var->Set(view);
 }
 
 ///////////////////////////////////////////////////////////
@@ -94,12 +100,14 @@ void Pipeline::setStaticVariable(
             ->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
 
     // Set
-    PIPELINE(m_resource)
+    auto* var = PIPELINE(m_resource)
         ->GetStaticVariableByName(
             static_cast<Diligent::SHADER_TYPE>(stages),
             name
-        )
-        ->Set(view);
+        );
+
+    if (var)
+        var->Set(view);
 }
 
 ///////////////////////////////////////////////////////////

@@ -119,6 +119,14 @@ public:
     ///
     ///////////////////////////////////////////////////////////
     void bind(RenderDevice* device);
+    
+    ///////////////////////////////////////////////////////////
+    /// \brief Get framebuffer size in pixels
+    ///
+    /// \return The size of the framebuffer
+    ///
+    ///////////////////////////////////////////////////////////
+    const Vector2u& getSize() const;
 
 public:
     static Framebuffer Default; //!< The default framebuffer created by window
@@ -126,7 +134,7 @@ public:
 private:
     struct Attachment {
         Texture* m_texture = nullptr; //!< The texture attachment
-        bool m_owner = false;       //!< Does framebuffer own texture
+        bool m_owner = false;         //!< Does framebuffer own texture
     };
 
     void bind(priv::DeviceImpl* device);
@@ -137,6 +145,7 @@ private:
     std::vector<void*> m_colorTextureViews; //!< The list of color texture views
     Attachment m_depthTexture;              //!< The depth texture
     void* m_depthTextureView;               //!< The depth texture view
+    Vector2u m_size;                        //!< The size of the framebuffer
 };
 
 } // namespace ply

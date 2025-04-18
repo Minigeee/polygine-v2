@@ -14,6 +14,7 @@
 
 using namespace Diligent;
 
+#define BUFFER(x) static_cast<Diligent::IBuffer*>(x)
 #define TEXTURE(x) static_cast<Diligent::ITexture*>(x)
 #define PIPELINE(x) static_cast<Diligent::IPipelineState*>(x)
 #define RESOURCE_BINDING(x) static_cast<Diligent::IShaderResourceBinding*>(x)
