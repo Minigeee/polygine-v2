@@ -2,18 +2,19 @@
 
 #include <ply/core/Handle.h>
 #include <ply/core/PoolAllocator.h>
+#include <ply/ecs/Query.h>
 #include <ply/graphics/Buffer.h>
 #include <ply/graphics/Camera.h>
 #include <ply/graphics/Framebuffer.h>
 #include <ply/graphics/Pipeline.h>
 #include <ply/graphics/RenderPass.h>
 #include <ply/graphics/Shader.h>
-#include <ply/ecs/Query.h>
 
 #include <vector>
 
 namespace ply {
 
+struct RenderPassContext;
 class RenderSystem;
 class World;
 
@@ -27,10 +28,6 @@ namespace priv {
 ///
 ///////////////////////////////////////////////////////////
 struct RendererBufferConfig {
-    /// Size of the light uniform buffer in number of struct elements (default
-    /// 10)
-    uint32_t lightBufferSize = 10;
-
     /// Size of the camera uniform buffer in number of struct elements (default
     /// 10)
     uint32_t cameraBufferSize = 10;
@@ -163,7 +160,8 @@ private:
 
     void startRenderPass(const priv::GBuffer& gbuffer);
 
-    void applyLighting(const priv::GBuffer& gbuffer);
+    void
+    applyLighting(priv::GBuffer& gbuffer, RenderPassContext& context);
 
     void updatePointLights();
 
@@ -199,7 +197,7 @@ private:
 
     // World
     Query m_queryPointLights; //!< Query for point lights in the world
-    Query m_queryDirLights;  //!< Query for directional lights in the world
+    Query m_queryDirLights;   //!< Query for directional lights in the world
 };
 
 } // namespace ply

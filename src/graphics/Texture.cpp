@@ -55,6 +55,9 @@ Texture::~Texture() {
 }
 
 ///////////////////////////////////////////////////////////
+GPU_RESOURCE_MOVE_DEFS(Texture, m_textures)
+
+///////////////////////////////////////////////////////////
 void Texture::update(
     const void* data,
     uint32_t stride,
@@ -166,7 +169,7 @@ TextureBuilder::TextureBuilder(RenderDevice* device) :
 ///////////////////////////////////////////////////////////
 TextureBuilder::TextureBuilder(priv::DeviceImpl* device) :
     GpuResourceBuilder(device) {
-    m_desc = Pool<priv::TextureDesc>::alloc();
+    m_desc = std::make_unique<priv::TextureDesc>();
 
     m_desc->Type = RESOURCE_DIM_TEX_2D;
     m_desc->Format = TEX_FORMAT_RGBA8_UINT;
@@ -177,21 +180,11 @@ TextureBuilder::TextureBuilder(priv::DeviceImpl* device) :
 }
 
 ///////////////////////////////////////////////////////////
-TextureBuilder::~TextureBuilder() {
-    if (m_desc) {
-        Pool<priv::TextureDesc>::free(m_desc);
-    }
-}
+TextureBuilder::~TextureBuilder() {}
 
 ///////////////////////////////////////////////////////////
-TextureBuilder::TextureBuilder(TextureBuilder&& other) noexcept :
-    m_desc(std::exchange(other.m_desc, nullptr)) {}
-
-///////////////////////////////////////////////////////////
-TextureBuilder& TextureBuilder::operator=(TextureBuilder&& other) noexcept {
-    if (this != &other) {
-        m_desc = std::exchange(other.m_desc, nullptr);
-    }
+TextureBuilder& TextureBuilder::name(const char* name) {
+    m_desc->Name = name;
     return *this;
 }
 

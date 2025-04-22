@@ -15,12 +15,23 @@ namespace priv {
 }
 
 ///////////////////////////////////////////////////////////
-/// \brief Contains references to shared uniform buffers
+/// \brief Contains references to shared constant buffers
 ///
 ///////////////////////////////////////////////////////////
-struct ContextUniformBuffers {
+struct ContextConstantBuffers {
     Buffer& camera; //!< Camera data
     Buffer& lights; //!< Dynamic lights buffer
+};
+
+///////////////////////////////////////////////////////////
+/// \brief Contains the current byte offsets of the shared constant buffers
+///
+/// Some buffers are pushed to several times within a single frame,
+/// so a byte offset is required to which section of the buffer to use.
+///
+///////////////////////////////////////////////////////////
+struct ContextBufferOffsets {
+    uint32_t camera; //!< Camera byte offset
 };
 
 ///////////////////////////////////////////////////////////
@@ -31,12 +42,14 @@ struct RenderPassContext {
     RenderPassContext(
         Camera& camera,
         RenderPass::Type pass,
-        ContextUniformBuffers buffers
+        ContextConstantBuffers buffers,
+        ContextBufferOffsets offsets
     );
 
-    Camera& camera;                //!< Camera being used to render scene
-    RenderPass::Type pass;         //!< Current render pass
-    ContextUniformBuffers buffers; //!< List of shared uniform buffers
+    Camera& camera;                 //!< Camera being used to render scene
+    RenderPass::Type pass;          //!< Current render pass
+    ContextConstantBuffers buffers; //!< List of shared constant buffers
+    ContextBufferOffsets offsets;   //!< List of shared constant buffer offsets
     bool isDeferredPass; //!< Is the current pass a deferred lighting pass
                          //!< (can't render transparent)
 };
@@ -54,9 +67,9 @@ public:
     ///
     ///////////////////////////////////////////////////////////
     struct Init {
-        RenderDevice* device;          //!< Render device to use for rendering
-        ContextUniformBuffers buffers; //!< Shared uniform buffers
-        RenderPass& renderPass;        //!< Render pass to use for rendering
+        RenderDevice* device;           //!< Render device to use for rendering
+        ContextConstantBuffers buffers; //!< Shared constant buffers
+        RenderPass& renderPass;         //!< Render pass to use for rendering
     };
 
 public:

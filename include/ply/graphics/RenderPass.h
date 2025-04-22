@@ -29,7 +29,11 @@ public:
     };
 
 public:
-    GPU_RESOURCE(RenderPass);
+    RenderPass() :
+        GpuResource() {}
+        
+    RenderPass(priv::DeviceImpl* device, void* resource, Handle handle) :
+        GpuResource(device, resource, handle) {}
 };
 
 BIT_OPERATOR(RenderPass::Type);

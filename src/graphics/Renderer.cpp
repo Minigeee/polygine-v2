@@ -35,6 +35,7 @@ namespace priv {
     ///
     ///////////////////////////////////////////////////////////
     struct GBuffer {
+        Vector2u m_size; //!< Size of the G-buffer in pixels
         RefCntAutoPtr<IFramebuffer>
             m_framebuffer;         //!< Framebuffer for the G-buffer
         Texture m_colorTexture;    //!< Color texture for the G-buffer
@@ -238,9 +239,14 @@ void Renderer::setUpLightVolumePipeline(uint32_t maxPointLights) {
 
     // Shaders
     m_lightVolumeShaderV =
-        m_device->shader().type(Shader::Vertex).file("light_volume.vsh").load();
+        m_device->shader()
+            .name("Light volume vertex shader")
+            .type(Shader::Vertex)
+            .file("light_volume.vsh")
+            .load();
     m_lightVolumeShaderP =
         m_device->shader()
+            .name("Light volume pixel shader")
             .language(useGlsl ? Shader::Language::Glsl : Shader::Language::Hlsl)
             .type(Shader::Pixel)
             .file(useGlsl ? "light_volume_glsl.psh" : "light_volume_hlsl.psh")
@@ -253,21 +259,16 @@ void Renderer::setUpLightVolumePipeline(uint32_t maxPointLights) {
     // Pipeline
     m_lightVolumePipeline =
         m_device->pipeline()
+            .name("Light volume pipeline")
             .renderPass(m_renderPass, 1)
             .shader(&m_lightVolumeShaderV)
             .shader(&m_lightVolumeShaderP)
             .topology(PrimitiveTopology::TriangleList)
             .cull(CullMode::None)
-            .depth(true)
-            .depthWrite(false)
+            .depth(false)
             .blend(true)
             .blendFactors(
                 BlendFactor::One,
-                BlendFactor::One,
-                BlendOperation::Add
-            )
-            .blendFactorsAlpha(
-                BlendFactor::Zero,
                 BlendFactor::One,
                 BlendOperation::Add
             )
@@ -296,13 +297,17 @@ void Renderer::setUpLightVolumePipeline(uint32_t maxPointLights) {
                 Shader::Pixel,
                 ShaderResourceType::Mutable
             ) // Material texture
+            .addVariable(
+                "Camera",
+                ply::Shader::Vertex,
+                ply::ShaderResourceType::Mutable
+            ) // Camera
+            .addVariable(
+                "Camera",
+                ply::Shader::Pixel,
+                ply::ShaderResourceType::Mutable
+            ) // Camera
             .create();
-
-    // Set variables
-    m_lightVolumePipeline
-        .setStaticVariable(Shader::Vertex, "Camera", m_cameraBuffer);
-    m_lightVolumePipeline
-        .setStaticVariable(Shader::Pixel, "Camera", m_cameraBuffer);
 
     // Point lights
     createPointLightBuffers(maxPointLights);
@@ -346,6 +351,7 @@ void Renderer::createPointLightBuffers(uint32_t maxPointLights) {
 
     m_pointLightVertex =
         m_device->buffer()
+            .name("Point light vertex buffer")
             .bind(ply::ResourceBind::VertexBuffer)
             .usage(ply::ResourceUsage::Immutable)
             .data(cubeVerts, sizeof(cubeVerts))
@@ -365,6 +371,7 @@ void Renderer::createPointLightBuffers(uint32_t maxPointLights) {
 
     m_pointLightIndex =
         m_device->buffer()
+            .name("Point light index buffer")
             .bind(ply::ResourceBind::IndexBuffer)
             .usage(ply::ResourceUsage::Immutable)
             .data(Indices, sizeof(Indices))
@@ -373,6 +380,7 @@ void Renderer::createPointLightBuffers(uint32_t maxPointLights) {
     // Create instance buffer
     m_pointLightInstance =
         m_device->buffer()
+            .name("Point light instance buffer")
             .access(ResourceAccess::Write)
             .bind(ResourceBind::VertexBuffer)
             .usage(ResourceUsage::Dynamic)
@@ -393,6 +401,7 @@ void Renderer::initialize(RenderDevice* device, const RendererConfig& config) {
     uint32_t size = (sizeof(CB_Camera) + align - 1) / align * align;
     m_cameraBuffer =
         device->buffer()
+            .name("Camera buffer")
             .access(ResourceAccess::Write)
             .bind(ResourceBind::UniformBuffer)
             .usage(ResourceUsage::Dynamic)
@@ -403,16 +412,18 @@ void Renderer::initialize(RenderDevice* device, const RendererConfig& config) {
     size = (sizeof(CB_Lights) + align - 1) / align * align;
     m_lightsBuffer =
         device->buffer()
+            .name("Lights buffer")
             .access(ResourceAccess::Write)
             .bind(ResourceBind::UniformBuffer)
             .usage(ResourceUsage::Dynamic)
-            .size(size * config.buffer.lightBufferSize)
+            .size(size)
             .create();
 
     // Allocate animation buffer
     size = (sizeof(CB_Skeleton) + align - 1) / align * align;
     m_animationBuffer =
         device->buffer()
+            .name("Animation buffer")
             .access(ResourceAccess::Write)
             .bind(ResourceBind::UniformBuffer)
             .usage(ResourceUsage::Dynamic)
@@ -426,9 +437,14 @@ void Renderer::initialize(RenderDevice* device, const RendererConfig& config) {
 
     // Deferred lighting pipeline
     m_quadShader =
-        device->shader().type(Shader::Vertex).file("quad.vsh").load();
+        device->shader()
+            .name("Quad shader")
+            .type(Shader::Vertex)
+            .file("quad.vsh")
+            .load();
     m_deferredShader =
         device->shader()
+            .name("Deferred ambient shader")
             .language(useGlsl ? Shader::Language::Glsl : Shader::Language::Hlsl)
             .type(Shader::Pixel)
             .file(useGlsl ? "deferred_glsl.psh" : "deferred_hlsl.psh")
@@ -437,6 +453,7 @@ void Renderer::initialize(RenderDevice* device, const RendererConfig& config) {
 
     m_deferredPipeline =
         device->pipeline()
+            .name("Deferred ambient pipeline")
             .renderPass(m_renderPass, 1)
             .shader(&m_quadShader)
             .shader(&m_deferredShader)
@@ -490,13 +507,17 @@ void Renderer::add(RenderSystem* system) {
     m_systems.push_back(system);
     system->m_device = m_device;
 
-    ContextUniformBuffers buffers({m_cameraBuffer, m_lightsBuffer});
+    ContextConstantBuffers buffers({m_cameraBuffer, m_lightsBuffer});
     RenderSystem::Init data{m_device, buffers, m_renderPass};
     system->initialize(data);
 }
 
 ///////////////////////////////////////////////////////////
 void Renderer::update(float dt) {
+    // Discard previous
+    m_cameraBuffer.discard();
+    m_lightsBuffer.discard();
+
     // Update all render systems
     for (RenderSystem* system : m_systems) {
         system->update(dt);
@@ -512,10 +533,7 @@ void Renderer::update(float dt) {
             normalize(Vector3f(0.0f, -1.0f, 0.2f));
         lightsBlock.m_numDirLights = 0;
 
-        CB_Lights* mapped =
-            (CB_Lights*)m_lightsBuffer.map(MapMode::Write, MapFlag::Discard);
-        mapped[0] = lightsBlock;
-        m_lightsBuffer.unmap();
+        m_lightsBuffer.push(lightsBlock);
     }
 
     // World updates
@@ -533,7 +551,7 @@ void Renderer::updatePointLights() {
 
     m_numPointLights = 0;
     m_queryPointLights.each(
-        [this, pointLights](QueryIterator it, Transform& t, PointLight& light) {
+        [&, this, pointLights](Transform& t, PointLight& light) {
             // Calculate point light radius
             const auto& coeffs = light.coefficients;
 
@@ -577,8 +595,9 @@ void Renderer::doRenderPass(
     auto deviceContext = device->m_deviceContext;
 
     // Create render context
-    ContextUniformBuffers buffers({m_cameraBuffer, m_lightsBuffer});
-    RenderPassContext context(camera, pass, buffers);
+    ContextConstantBuffers buffers({m_cameraBuffer, m_lightsBuffer});
+    ContextBufferOffsets offsets({0});
+    RenderPassContext context(camera, pass, buffers, offsets);
     context.isDeferredPass = true;
 
     // Update camera buffer
@@ -586,7 +605,8 @@ void Renderer::doRenderPass(
 
     CB_Camera cameraBlock;
     cameraBlock.m_projView = projView;
-    cameraBlock.m_invProjView = glm::transpose(inverse(projView)); // idfk why i have to transpose it
+    cameraBlock.m_invProjView =
+        glm::transpose(inverse(projView)); // idfk why i have to transpose it
     cameraBlock.m_cameraPos = camera.getPosition();
 
     // Get viewport size
@@ -609,12 +629,8 @@ void Renderer::doRenderPass(
         );
     }
 
-    {
-        CB_Camera* mapped =
-            (CB_Camera*)m_cameraBuffer.map(MapMode::Write, MapFlag::Discard);
-        mapped[0] = cameraBlock;
-        m_cameraBuffer.unmap();
-    }
+    // Push data
+    context.offsets.camera = m_cameraBuffer.push(cameraBlock);
 
     // Shadow pass only renders once
     if (pass == RenderPass::Shadow) {
@@ -650,7 +666,7 @@ void Renderer::doRenderPass(
     deviceContext->NextSubpass();
 
     // Do lighting stage
-    applyLighting(gbuffer);
+    applyLighting(gbuffer, context);
 
     deviceContext->EndRenderPass();
     m_device->context.setRenderPassMode(false);
@@ -675,12 +691,36 @@ void Renderer::doRenderPass(
 }
 
 ///////////////////////////////////////////////////////////
+ResourceBinding createDeferredResourceBinding(
+    Pipeline& pipeline,
+    const priv::GBuffer& gbuffer
+) {
+    ResourceBinding binding = pipeline.createResourceBinding();
+    binding.set(Shader::Pixel, "g_colorTexture", gbuffer.m_colorTexture);
+    binding.set(Shader::Pixel, "g_depthTexture", gbuffer.m_depthZTexture);
+    binding.set(Shader::Pixel, "g_normalTexture", gbuffer.m_normalTexture);
+    binding.set(Shader::Pixel, "g_materialTexture", gbuffer.m_materialTexture);
+    return binding;
+}
+
+///////////////////////////////////////////////////////////
 priv::GBuffer& Renderer::getGBuffer(Framebuffer& target) {
     auto* device = m_device->getImpl();
 
+    // Get current target size
+    Vector2u currentSize = target.getSize();
+    if (&target == &Framebuffer::Default) {
+        // Use swap chain size for default framebuffer
+        const auto& scDesc = device->m_swapChain->GetDesc();
+        currentSize.x = scDesc.Width;
+        currentSize.y = scDesc.Height;
+    }
+
     // Check if we have a G-buffer for this target
     auto it = m_impl->m_gBuffers.find(&target);
-    if (it == m_impl->m_gBuffers.end()) {
+
+    // Create gbuffer if not found or size changed
+    if (it == m_impl->m_gBuffers.end() || currentSize != it->second.m_size) {
         // Create new G-buffer
         priv::GBuffer gbuffer;
 
@@ -847,32 +887,23 @@ priv::GBuffer& Renderer::getGBuffer(Framebuffer& target) {
             &gbuffer.m_framebuffer
         );
 
-        // Create deferred resource binding
-        gbuffer.m_deferredBinding = m_deferredPipeline.createResourceBinding();
-        gbuffer.m_deferredBinding
-            .set(Shader::Pixel, "g_colorTexture", gbuffer.m_colorTexture);
-        gbuffer.m_deferredBinding
-            .set(Shader::Pixel, "g_depthTexture", gbuffer.m_depthZTexture);
-        gbuffer.m_deferredBinding
-            .set(Shader::Pixel, "g_normalTexture", gbuffer.m_normalTexture);
-        gbuffer.m_deferredBinding
-            .set(Shader::Pixel, "g_materialTexture", gbuffer.m_materialTexture);
+        // Set size
+        gbuffer.m_size = Vector2u(scDesc.Width, scDesc.Height);
 
-        // Create light volume resource binding
+        // Create resource bindings
+        gbuffer.m_deferredBinding =
+            createDeferredResourceBinding(m_deferredPipeline, gbuffer);
         gbuffer.m_lightVolumeBinding =
-            m_lightVolumePipeline.createResourceBinding();
+            createDeferredResourceBinding(m_lightVolumePipeline, gbuffer);
+
+        // Set variables
         gbuffer.m_lightVolumeBinding
-            .set(Shader::Pixel, "g_colorTexture", gbuffer.m_colorTexture);
+            .set(Shader::Vertex, "Camera", m_cameraBuffer);
         gbuffer.m_lightVolumeBinding
-            .set(Shader::Pixel, "g_depthTexture", gbuffer.m_depthZTexture);
-        gbuffer.m_lightVolumeBinding
-            .set(Shader::Pixel, "g_normalTexture", gbuffer.m_normalTexture);
-        gbuffer.m_lightVolumeBinding
-            .set(Shader::Pixel, "g_materialTexture", gbuffer.m_materialTexture);
+            .set(Shader::Pixel, "Camera", m_cameraBuffer);
 
         // Add to map
-        it = m_impl->m_gBuffers
-                 .emplace(std::make_pair(&target, std::move(gbuffer)))
+        it = m_impl->m_gBuffers.insert_or_assign(&target, std::move(gbuffer))
                  .first;
     }
 
@@ -928,7 +959,10 @@ void Renderer::startRenderPass(const priv::GBuffer& gbuffer) {
 }
 
 ///////////////////////////////////////////////////////////
-void Renderer::applyLighting(const priv::GBuffer& gbuffer) {
+void Renderer::applyLighting(
+    priv::GBuffer& gbuffer,
+    RenderPassContext& context
+) {
     auto& deviceContext = m_device->context;
 
     // Deferred shading pass
@@ -936,8 +970,13 @@ void Renderer::applyLighting(const priv::GBuffer& gbuffer) {
     deviceContext.setResourceBinding(gbuffer.m_deferredBinding);
     deviceContext.draw(4);
 
-    // Light volumes
+    // Point lights
     if (m_numPointLights > 0) {
+        gbuffer.m_lightVolumeBinding
+            .setOffset(Shader::Vertex, "Camera", context.offsets.camera);
+        gbuffer.m_lightVolumeBinding
+            .setOffset(Shader::Pixel, "Camera", context.offsets.camera);
+
         deviceContext.setPipeline(m_lightVolumePipeline);
         deviceContext.setResourceBinding(gbuffer.m_lightVolumeBinding);
         deviceContext.setVertexBuffers(

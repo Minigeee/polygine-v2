@@ -28,6 +28,23 @@ Shader::~Shader() {
 }
 
 ///////////////////////////////////////////////////////////
+Shader::Shader(Shader&& other) noexcept :
+    GpuResource(std::move(other)),
+    m_type(other.m_type) {}
+
+///////////////////////////////////////////////////////////
+Shader& Shader::operator=(Shader&& other) noexcept {
+    if (this != &other) {
+        if (m_device && m_resource) {
+            m_device->m_shaders.remove(m_handle);
+        }
+        GpuResource::operator=(std::move(other));
+        m_type = other.m_type;
+    }
+    return *this;
+}
+
+///////////////////////////////////////////////////////////
 Shader::Type Shader::getType() const {
     return m_type;
 }
@@ -55,7 +72,7 @@ ShaderBuilder::ShaderBuilder(RenderDevice* device) :
 ///////////////////////////////////////////////////////////
 ShaderBuilder::ShaderBuilder(priv::DeviceImpl* device) :
     GpuResourceBuilder(device) {
-    m_desc = Pool<priv::ShaderDesc>::alloc();
+    m_desc = std::make_unique<priv::ShaderDesc>();
 
     // Set shader factory
     m_desc->pShaderSourceStreamFactory = m_device->m_shaderFactory;
@@ -70,24 +87,11 @@ ShaderBuilder::ShaderBuilder(priv::DeviceImpl* device) :
 }
 
 ///////////////////////////////////////////////////////////
-ShaderBuilder::~ShaderBuilder() {
-    if (m_desc) {
-        Pool<priv::ShaderDesc>::free(m_desc);
-    }
-}
+ShaderBuilder::~ShaderBuilder() {}
 
 ///////////////////////////////////////////////////////////
-ShaderBuilder::ShaderBuilder(ShaderBuilder&& other) noexcept {
-    m_desc = other.m_desc;
-    other.m_desc = nullptr;
-}
-
-///////////////////////////////////////////////////////////
-ShaderBuilder& ShaderBuilder::operator=(ShaderBuilder&& other) noexcept {
-    if (this != &other) {
-        m_desc = other.m_desc;
-        other.m_desc = nullptr;
-    }
+ShaderBuilder& ShaderBuilder::name(const char* name) {
+    m_desc->Desc.Name = name;
     return *this;
 }
 
@@ -105,6 +109,8 @@ ShaderBuilder& ShaderBuilder::type(Shader::Type type) {
         break;
     case Shader::Type::Pixel:
         desc.ShaderType = SHADER_TYPE_PIXEL;
+        break;
+    default:
         break;
     }
 
@@ -138,9 +144,10 @@ ShaderBuilder& ShaderBuilder::language(Shader::Language language) {
     } else {
         m_desc->SourceLanguage = SHADER_SOURCE_LANGUAGE_GLSL;
         // Enable includes
-        m_desc->GLSLExtensions = "#extension GL_ARB_shading_language_include : enable\n";
+        m_desc->GLSLExtensions =
+            "#extension GL_ARB_shading_language_include : enable\n";
     }
-    
+
     return *this;
 }
 

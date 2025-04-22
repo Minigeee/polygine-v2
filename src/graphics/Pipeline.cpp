@@ -15,6 +15,9 @@ ResourceBinding::~ResourceBinding() {
 }
 
 ///////////////////////////////////////////////////////////
+GPU_RESOURCE_MOVE_DEFS(ResourceBinding, m_resourceBindings)
+
+///////////////////////////////////////////////////////////
 void ResourceBinding::set(
     Shader::Type stages,
     const char* name,
@@ -60,11 +63,32 @@ void ResourceBinding::set(
 }
 
 ///////////////////////////////////////////////////////////
+void ResourceBinding::setOffset(
+    Shader::Type stages,
+    const char* name,
+    uint32_t offset
+) {
+    CHECK_F(m_device && m_resource, "resource binding not initialized");
+    auto var =
+        RESOURCE_BINDING(m_resource)
+            ->GetVariableByName(
+                static_cast<Diligent::SHADER_TYPE>(stages),
+                name
+            );
+
+    if (var)
+        var->SetBufferOffset(offset);
+}
+
+///////////////////////////////////////////////////////////
 Pipeline::~Pipeline() {
     if (m_device && m_resource) {
         m_device->m_pipelines.remove(m_handle);
     }
 }
+
+///////////////////////////////////////////////////////////
+GPU_RESOURCE_MOVE_DEFS(Pipeline, m_pipelines)
 
 ///////////////////////////////////////////////////////////
 void Pipeline::setStaticVariable(
@@ -100,11 +124,12 @@ void Pipeline::setStaticVariable(
             ->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
 
     // Set
-    auto* var = PIPELINE(m_resource)
-        ->GetStaticVariableByName(
-            static_cast<Diligent::SHADER_TYPE>(stages),
-            name
-        );
+    auto* var =
+        PIPELINE(m_resource)
+            ->GetStaticVariableByName(
+                static_cast<Diligent::SHADER_TYPE>(stages),
+                name
+            );
 
     if (var)
         var->Set(view);
@@ -129,7 +154,7 @@ PipelineBuilder::PipelineBuilder(RenderDevice* device, PipelineType type) :
     GpuResourceBuilder(device),
     m_desc(nullptr),
     m_numTargets(0) {
-    m_desc = Pool<priv::PipelineDesc>::alloc();
+    m_desc = std::make_unique<priv::PipelineDesc>();
 
     // TEMP
     CHECK_F(type == PipelineType::Graphics, "Compute pipeline not implemented");
@@ -152,29 +177,11 @@ PipelineBuilder::PipelineBuilder(RenderDevice* device, PipelineType type) :
 }
 
 ///////////////////////////////////////////////////////////
-PipelineBuilder::~PipelineBuilder() {
-    if (m_desc) {
-        Pool<priv::PipelineDesc>::free(m_desc);
-    }
-}
+PipelineBuilder::~PipelineBuilder() {}
 
 ///////////////////////////////////////////////////////////
-PipelineBuilder::PipelineBuilder(PipelineBuilder&& other) noexcept :
-    m_desc(std::exchange(other.m_desc, nullptr)),
-    m_numTargets(std::exchange(other.m_numTargets, 0)),
-    m_inputLayouts(std::move(other.m_inputLayouts)),
-    m_variables(std::move(other.m_variables)),
-    m_samplers(std::move(other.m_samplers)) {}
-
-///////////////////////////////////////////////////////////
-PipelineBuilder& PipelineBuilder::operator=(PipelineBuilder&& other) noexcept {
-    if (this != &other) {
-        m_desc = std::exchange(other.m_desc, nullptr);
-        m_numTargets = std::exchange(other.m_numTargets, 0);
-        m_inputLayouts = std::move(other.m_inputLayouts);
-        m_variables = std::move(other.m_variables);
-        m_samplers = std::move(other.m_samplers);
-    }
+PipelineBuilder& PipelineBuilder::name(const char* name) {
+    m_desc->PSODesc.Name = name;
     return *this;
 }
 

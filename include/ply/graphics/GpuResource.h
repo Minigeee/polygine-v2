@@ -93,13 +93,23 @@ private:
 
 } // namespace ply
 
-#define GPU_RESOURCE_NO_MOVE(X)                                  \
+#define GPU_RESOURCE(X)                                          \
     X() :                                                        \
         GpuResource() {}                                         \
     X(priv::DeviceImpl* device, void* resource, Handle handle) : \
-        GpuResource(device, resource, handle) {}
+        GpuResource(device, resource, handle) {}                 \
+    X(X&&) noexcept;                                             \
+    X& operator=(X&&) noexcept;
 
-#define GPU_RESOURCE(X)        \
-    GPU_RESOURCE_NO_MOVE(X)    \
-    X(X&&) noexcept = default; \
-    X& operator=(X&&) noexcept = default;
+#define GPU_RESOURCE_MOVE_DEFS(x, r_array)            \
+    x::x(x&& other) noexcept :                        \
+        GpuResource(std::move(other)) {}              \
+    x& x::operator=(x&& other) noexcept {             \
+        if (this != &other) {                         \
+            if (m_device && m_resource) {             \
+                m_device->r_array.remove(m_handle);   \
+            }                                         \
+            GpuResource::operator=(std::move(other)); \
+        }                                             \
+        return *this;                                 \
+    }

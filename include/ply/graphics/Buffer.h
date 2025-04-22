@@ -4,6 +4,7 @@
 #include <ply/graphics/Types.h>
 
 #include <initializer_list>
+#include <memory>
 #include <vector>
 
 namespace ply {
@@ -67,21 +68,62 @@ public:
     void* map(MapMode mode, MapFlag flags = MapFlag::None);
 
     ///////////////////////////////////////////////////////////
+    /// \brief Map a buffer range for CPU access.
+    /// \param mode Mapping mode (read, write, or read/write).
+    /// \param size Size of the range to map in bytes.
+    /// \return Pointer to mapped memory.
+    ///
+    /// Maps the buffer starting from the current offset, while treating
+    /// the buffer as a streaming buffer. If there is enough space, the buffer
+    /// will be mapped without syncing by using the MapFlag::NoOverwrite flag.
+    /// If the buffer is full, it will be reset and mapped with the
+    /// MapFlag::Discard flag to reset the buffer.
+    ///
+    ///////////////////////////////////////////////////////////
+    void* mapDynamicRange(MapMode mode, uint32_t size);
+
+    ///////////////////////////////////////////////////////////
     /// \brief Unmap the buffer from CPU access.
     ///
     ///////////////////////////////////////////////////////////
     void unmap();
 
     ///////////////////////////////////////////////////////////
+    /// \brief Push data to the buffer by mapping, then appending it after the
+    /// current offset
+    /// \param data Pointer to the data to upload.
+    /// \param align Optional alignment for the data (default 1, can't be 0).
+    /// \param reset Optional flag to reset the offset before pushing (forces sync)
+    /// \return The offset of the pushed data in bytes.
+    ///
+    ///////////////////////////////////////////////////////////
+    template <typename T>
+    uint32_t push(const T& data, uint32_t align = 1, bool reset = false);
+    
+    ///////////////////////////////////////////////////////////
+    /// \brief Discard and reset buffer offset.
+    ///
+    ///////////////////////////////////////////////////////////
+    void discard();
+
+    ///////////////////////////////////////////////////////////
     /// \brief Get the size of the buffer in bytes.
     /// \return Buffer size in bytes.
     ///
     ///////////////////////////////////////////////////////////
-    uint32_t getSize() const;
+    uint32_t size() const;
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Get the current offset of the buffer in bytes.
+    /// \return Buffer offset in bytes.
+    ///
+    ///////////////////////////////////////////////////////////
+    uint32_t offset() const;
 
 private:
-    void* m_mapped; //!< Current mapped pointer
-    MapMode m_mode; //!< Current map mode
+    void* m_mapped;    //!< Current mapped pointer
+    uint32_t m_offset; //!< The current offset of data in bytes
+    MapMode m_mode;    //!< Current map mode
 };
 
 ///////////////////////////////////////////////////////////
@@ -110,10 +152,12 @@ public:
     ///////////////////////////////////////////////////////////
     ~BufferBuilder();
 
-    BufferBuilder(const BufferBuilder&) = delete;
-    BufferBuilder& operator=(const BufferBuilder&) = delete;
-    BufferBuilder(BufferBuilder&&) noexcept;
-    BufferBuilder& operator=(BufferBuilder&&) noexcept;
+    ///////////////////////////////////////////////////////////
+    /// \brief Set the resource name for debugging purposes.
+    /// \param name Resource name for debugging.
+    ///
+    ///////////////////////////////////////////////////////////
+    BufferBuilder& name(const char* name);
 
     ///////////////////////////////////////////////////////////
     /// \brief Set the resource bind flags for the buffer.
@@ -168,7 +212,7 @@ public:
     Buffer create();
 
 private:
-    priv::BufferDesc* m_desc;
+    std::unique_ptr<priv::BufferDesc> m_desc;
 };
 
 ///////////////////////////////////////////////////////////

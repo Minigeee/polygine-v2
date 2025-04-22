@@ -4,6 +4,8 @@
 #include <ply/graphics/Image.h>
 #include <ply/graphics/Types.h>
 
+#include <memory>
+
 namespace ply {
 
 namespace priv {
@@ -113,10 +115,12 @@ public:
     ///////////////////////////////////////////////////////////
     ~TextureBuilder();
 
-    TextureBuilder(const TextureBuilder&) = delete;
-    TextureBuilder& operator=(const TextureBuilder&) = delete;
-    TextureBuilder(TextureBuilder&&) noexcept;
-    TextureBuilder& operator=(TextureBuilder&&) noexcept;
+    ///////////////////////////////////////////////////////////
+    /// \brief Set the resource name for debugging purposes.
+    /// \param name Resource name for debugging.
+    ///
+    ///////////////////////////////////////////////////////////
+    TextureBuilder& name(const char* name);
 
     ///////////////////////////////////////////////////////////
     /// \brief Set the resource bind flags for the texture.
@@ -203,7 +207,7 @@ private:
     void setUpData();
 
 private:
-    priv::TextureDesc* m_desc; //!< Texture descriptor
+    std::unique_ptr<priv::TextureDesc> m_desc; //!< Texture descriptor
 };
 
 } // namespace ply

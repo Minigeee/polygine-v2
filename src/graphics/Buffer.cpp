@@ -9,12 +9,14 @@ namespace ply {
 ///////////////////////////////////////////////////////////
 Buffer::Buffer() :
     GpuResource(),
-    m_mapped(nullptr) {}
+    m_mapped(nullptr),
+    m_offset(0) {}
 
 ///////////////////////////////////////////////////////////
 Buffer::Buffer(priv::DeviceImpl* device, void* resource, Handle handle) :
     GpuResource(device, resource, handle),
-    m_mapped(nullptr) {}
+    m_mapped(nullptr),
+    m_offset(0) {}
 
 ///////////////////////////////////////////////////////////
 Buffer::~Buffer() {
@@ -31,14 +33,24 @@ Buffer::~Buffer() {
 Buffer::Buffer(Buffer&& other) noexcept :
     GpuResource(std::move(other)),
     m_mapped(std::exchange(other.m_mapped, nullptr)),
-    m_mode(other.m_mode) {}
+    m_mode(other.m_mode),
+    m_offset(other.m_offset) {}
 
 ///////////////////////////////////////////////////////////
 Buffer& Buffer::operator=(Buffer&& other) noexcept {
     if (&other != this) {
+        if (m_device && m_resource) {
+            m_device->m_buffers.remove(m_handle);
+        }
+
+        if (m_mapped) {
+            unmap();
+        }
+
         GpuResource::operator=(std::move(other));
         m_mapped = std::exchange(other.m_mapped, nullptr);
         m_mode = other.m_mode;
+        m_offset = other.m_offset;
     }
     return *this;
 }
@@ -71,6 +83,25 @@ void* Buffer::map(MapMode mode, MapFlag flags) {
 }
 
 ///////////////////////////////////////////////////////////
+void* Buffer::mapDynamicRange(MapMode mode, uint32_t size) {
+    MapFlag flags = MapFlag::NoOverwrite;
+
+    // Reset if the push will cause overflow
+    if (m_offset == 0 || m_offset + size > this->size()) {
+        m_offset = 0;
+        flags = MapFlag::Discard;
+    }
+
+    // Map the buffer
+    void* mapped = this->map(MapMode::Write, flags);
+
+    // Update the offset
+    m_offset += size;
+
+    return mapped;
+}
+
+///////////////////////////////////////////////////////////
 void Buffer::unmap() {
     if (m_mapped) {
         m_device->m_deviceContext->UnmapBuffer(
@@ -82,8 +113,18 @@ void Buffer::unmap() {
 }
 
 ///////////////////////////////////////////////////////////
-uint32_t Buffer::getSize() const {
+void Buffer::discard() {
+    m_offset = 0;
+}
+
+///////////////////////////////////////////////////////////
+uint32_t Buffer::size() const {
     return BUFFER(m_resource)->GetDesc().Size;
+}
+
+///////////////////////////////////////////////////////////
+uint32_t Buffer::offset() const {
+    return m_offset;
 }
 
 ///////////////////////////////////////////////////////////
@@ -93,25 +134,15 @@ BufferBuilder::BufferBuilder(RenderDevice* device) :
 ///////////////////////////////////////////////////////////
 BufferBuilder::BufferBuilder(priv::DeviceImpl* device) :
     GpuResourceBuilder(device) {
-    m_desc = Pool<priv::BufferDesc>::alloc();
+    m_desc = std::make_unique<priv::BufferDesc>();
 }
 
 ///////////////////////////////////////////////////////////
-BufferBuilder::~BufferBuilder() {
-    if (m_desc) {
-        Pool<priv::BufferDesc>::free(m_desc);
-    }
-}
+BufferBuilder::~BufferBuilder() {}
 
 ///////////////////////////////////////////////////////////
-BufferBuilder::BufferBuilder(BufferBuilder&& other) noexcept :
-    m_desc(std::exchange(other.m_desc, nullptr)) {}
-
-///////////////////////////////////////////////////////////
-BufferBuilder& BufferBuilder::operator=(BufferBuilder&& other) noexcept {
-    if (this != &other) {
-        m_desc = std::exchange(other.m_desc, nullptr);
-    }
+BufferBuilder& BufferBuilder::name(const char* name) {
+    m_desc->Name = name;
     return *this;
 }
 

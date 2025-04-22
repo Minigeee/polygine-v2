@@ -119,7 +119,7 @@ public:
     ///
     ///////////////////////////////////////////////////////////
     void bind(RenderDevice* device);
-    
+
     ///////////////////////////////////////////////////////////
     /// \brief Get framebuffer size in pixels
     ///
@@ -129,7 +129,12 @@ public:
     const Vector2u& getSize() const;
 
 public:
-    static Framebuffer Default; //!< The default framebuffer created by window
+    ///////////////////////////////////////////////////////////
+    /// \brief Represents the default swapchain framebuffers. It does
+    /// not hold any actual data, but can be used as a render target.
+    ///
+    ///////////////////////////////////////////////////////////
+    static Framebuffer Default;
 
 private:
     struct Attachment {

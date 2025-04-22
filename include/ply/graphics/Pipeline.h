@@ -6,6 +6,7 @@
 #include <ply/graphics/Types.h>
 
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 namespace ply {
@@ -95,6 +96,19 @@ public:
     ///
     ///////////////////////////////////////////////////////////
     void set(Shader::Type stages, const char* name, const Texture& resource);
+    
+    ///////////////////////////////////////////////////////////
+    /// \brief Set the buffer offset for a buffer variable.
+    /// \param stages Shader stages to which the variable belongs.
+    /// \param name Name of the variable.
+    /// \param offset Offset in bytes to set for the buffer variable (in bytes)
+    ///
+    ///////////////////////////////////////////////////////////
+    void setOffset(
+        Shader::Type stages,
+        const char* name,
+        uint32_t offset
+    );
 };
 
 ///////////////////////////////////////////////////////////
@@ -173,15 +187,17 @@ public:
     );
 
     ///////////////////////////////////////////////////////////
-    /// \brief Destructor. Cleans up builder resources.
+    /// \brief Destructor
     ///
     ///////////////////////////////////////////////////////////
     ~PipelineBuilder();
 
-    PipelineBuilder(const PipelineBuilder&) = delete;
-    PipelineBuilder& operator=(const PipelineBuilder&) = delete;
-    PipelineBuilder(PipelineBuilder&&) noexcept;
-    PipelineBuilder& operator=(PipelineBuilder&&) noexcept;
+    ///////////////////////////////////////////////////////////
+    /// \brief Set the resource name for debugging purposes.
+    /// \param name Resource name for debugging.
+    ///
+    ///////////////////////////////////////////////////////////
+    PipelineBuilder& name(const char* name);
 
     ///////////////////////////////////////////////////////////
     /// \brief Set the framebuffer target format for the pipeline.
@@ -340,7 +356,7 @@ public:
     Pipeline create();
 
 private:
-    priv::PipelineDesc* m_desc;
+    std::unique_ptr<priv::PipelineDesc> m_desc;
     std::vector<InputLayout> m_inputLayouts;
     std::vector<ShaderVariableDesc> m_variables;
     std::vector<ShaderSamplerDesc> m_samplers;

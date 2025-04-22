@@ -295,6 +295,11 @@ public:
                     ply::Shader::Pixel,
                     ply::ShaderResourceType::Mutable
                 ) // Texture
+                .addVariable(
+                    "Camera",
+                    ply::Shader::Vertex,
+                    ply::ShaderResourceType::Mutable
+                ) // Camera
                 .addSampler("g_Texture", ply::Shader::Pixel)
                 .cull(ply::CullMode::Back)
                 .create();
@@ -314,11 +319,6 @@ public:
             "Constants",
             m_constantsBuffer
         );
-        m_pipeline.setStaticVariable(
-            ply::Shader::Vertex,
-            "Camera",
-            context.buffers.camera
-        );
 
         // Vertex buffer
         m_vertexBuffer = createVertexBuffer(*m_device);
@@ -336,6 +336,11 @@ public:
 
         // Create default resource binding
         m_binding = m_pipeline.createResourceBinding();
+        m_binding.set(
+            ply::Shader::Vertex,
+            "Camera",
+            context.buffers.camera
+        );
 
         // Load image texture
         ply::Image image1("examples/assets/DGLogo1.png");
@@ -375,6 +380,12 @@ public:
     }
 
     void render(ply::RenderPassContext& context) override {
+        m_binding.setOffset(
+            ply::Shader::Vertex,
+            "Camera",
+            context.offsets.camera
+        );
+
         m_device->context.setPipeline(m_pipeline);
         m_device->context.setVertexBuffers({&m_vertexBuffer, &m_instanceBuffer}
         );
@@ -398,14 +409,13 @@ private:
 
 int main(int argc, char* argv[]) {
     // WIP :
-    // - [ ] Implement ambient + directional lighting
-    // - [ ] Implement point light volumes
+    // - [X] Implement ambient + directional lighting
+    // - [X] Implement point light volumes
     // - [ ] Clean up:
-    //   - [ ] Implement constant buffer offsets
-    //   - [ ] Get clear color from render device
-    //   - [ ] Handle resizes
-    //   - [ ] Add name function to gpu resource builders
-    //   - [ ] Handle when camera is inside point light volume
+    //   - [X] Implement constant buffer offsets (create constant buffer for easy data pushing, create streaming buffer for easy instance data streaming)
+    //   - [X] Handle resizes
+    //   - [X] Add name function to gpu resource builders (and use them in the renderer class)
+    //   - [X] Handle when camera is inside point light volume
 
     // Logger
     loguru::add_file(
@@ -440,7 +450,7 @@ int main(int argc, char* argv[]) {
 
         // Camera
         ply::Camera camera;
-        camera.setPosition({0.0f, 0.0f, -3.0f});
+        camera.setPosition({0.0f, 0.0f, -1.0f});
         camera.setDirection({0.0f, 0.0f, 1.0f});
         camera.setPerspective(90.0f, 8.0f / 6.0f, 0.1f, 100.0f);
 

@@ -4,6 +4,8 @@
 #include <ply\core\Macros.h>
 #include <ply\graphics\GpuResource.h>
 
+#include <memory>
+
 namespace ply {
 
 namespace priv {
@@ -170,12 +172,12 @@ public:
     ///////////////////////////////////////////////////////////
     ~ShaderBuilder();
 
-    ShaderBuilder(const ShaderBuilder&) = delete;
-    ShaderBuilder& operator=(const ShaderBuilder&) = delete;
-    /// \brief Move constructor
-    ShaderBuilder(ShaderBuilder&&) noexcept;
-    /// \brief Move assignment operator
-    ShaderBuilder& operator=(ShaderBuilder&&) noexcept;
+    ///////////////////////////////////////////////////////////
+    /// \brief Set the resource name for debugging purposes.
+    /// \param name Resource name for debugging.
+    ///
+    ///////////////////////////////////////////////////////////
+    ShaderBuilder& name(const char* name);
 
     ///////////////////////////////////////////////////////////
     /// \brief Set the shader type
@@ -243,7 +245,7 @@ public:
     Shader load();
 
 private:
-    priv::ShaderDesc* m_desc;
+    std::unique_ptr<priv::ShaderDesc> m_desc;
     Shader::Type m_type;
 };
 
