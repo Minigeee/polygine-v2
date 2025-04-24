@@ -72,6 +72,7 @@ bool RenderDevice::initialize(Window* window) {
             &m_device->m_swapChain
         );
     }
+    const auto& info = m_device->m_renderDevice->GetDeviceInfo();
 
     m_device->m_engineFactory = pFactoryVk;
 
@@ -187,6 +188,21 @@ uint32_t RenderDevice::getConstantBufferAlignment() const {
 uint32_t RenderDevice::getStructuredBufferAlignment() const {
     return m_device->m_renderDevice->GetAdapterInfo()
         .Buffer.StructuredBufferOffsetAlignment;
+}
+
+///////////////////////////////////////////////////////////
+bool RenderDevice::isGlDevice() const {
+    return m_device->m_renderDevice->GetDeviceInfo().IsGLDevice();
+}
+
+///////////////////////////////////////////////////////////
+bool RenderDevice::isVulkanDevice() const {
+    return m_device->m_renderDevice->GetDeviceInfo().IsVulkanDevice();
+}
+
+///////////////////////////////////////////////////////////
+bool RenderDevice::isWebGpuDevice() const {
+    return m_device->m_renderDevice->GetDeviceInfo().IsWebGPUDevice();
 }
 
 ///////////////////////////////////////////////////////////

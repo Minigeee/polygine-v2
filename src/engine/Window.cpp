@@ -161,6 +161,24 @@ void Window::setTitle(const std::string& title) {
 }
 
 ///////////////////////////////////////////////////////////
+void Window::setCursorGrabbed(bool grab) {
+    // Check if window is open
+    if (!m_window)
+        return;
+
+    SDL_SetWindowMouseGrab(WINDOW_CAST(m_window), grab);
+}
+
+///////////////////////////////////////////////////////////
+void Window::setCursorLocked(bool locked) {
+    // Check if window is open
+    if (!m_window)
+        return;
+
+    SDL_SetWindowRelativeMouseMode(WINDOW_CAST(m_window), locked);
+}
+
+///////////////////////////////////////////////////////////
 WindowHandle Window::getNativeHandle() const {
     SDL_Window* window = WINDOW_CAST(m_window);
 
@@ -199,6 +217,16 @@ Vector2f Window::getMousePosition() const {
     Vector2f pos;
     SDL_GetMouseState(&pos.x, &pos.y);
     return pos;
+}
+
+///////////////////////////////////////////////////////////
+bool Window::isCursorGrabbed() const {
+    return SDL_GetWindowMouseGrab(WINDOW_CAST(m_window));
+}
+
+///////////////////////////////////////////////////////////
+bool Window::isCursorLocked() const {
+    return SDL_GetWindowRelativeMouseMode(WINDOW_CAST(m_window));
 }
 
 } // namespace ply

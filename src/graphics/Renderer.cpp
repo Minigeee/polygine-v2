@@ -264,7 +264,7 @@ void Renderer::setUpLightVolumePipeline(uint32_t maxPointLights) {
             .shader(&m_lightVolumeShaderV)
             .shader(&m_lightVolumeShaderP)
             .topology(PrimitiveTopology::TriangleList)
-            .cull(CullMode::None)
+            .cull(CullMode::Front)
             .depth(false)
             .blend(true)
             .blendFactors(

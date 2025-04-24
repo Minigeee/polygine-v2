@@ -10,10 +10,12 @@
 #include <string>
 
 #ifdef PLY_PLATFORM_WINDOWS
-#include <wtypes.h>
+    #include <wtypes.h>
 #endif
 
 namespace ply {
+
+class Editor;
 
 #ifdef PLY_PLATFORM_WINDOWS
 typedef HWND WindowHandle;
@@ -29,6 +31,7 @@ class Window
           Event::MouseScroll,
           Event::TextInput> {
     friend Input;
+    friend Editor;
 
 public:
     ///////////////////////////////////////////////////////////
@@ -48,7 +51,12 @@ public:
     /// \see create
     ///
     ///////////////////////////////////////////////////////////
-    Window(uint32_t w, uint32_t h, const std::string& title, bool fullscreen = false);
+    Window(
+        uint32_t w,
+        uint32_t h,
+        const std::string& title,
+        bool fullscreen = false
+    );
 
     ///////////////////////////////////////////////////////////
     /// \brief Destructor
@@ -76,7 +84,12 @@ public:
     /// \param fullscreen Should the window be fullscreen or not
     ///
     ///////////////////////////////////////////////////////////
-    bool create(uint32_t w, uint32_t h, const std::string& title, bool fullscreen = false);
+    bool create(
+        uint32_t w,
+        uint32_t h,
+        const std::string& title,
+        bool fullscreen = false
+    );
 
     ///////////////////////////////////////////////////////////
     /// \brief Check if the window close has been requested
@@ -114,6 +127,23 @@ public:
     void setTitle(const std::string& title);
 
     ///////////////////////////////////////////////////////////
+    /// \brief Set whether the cursor should be grabbed to this window
+    /// \param grab True to grab the cursor
+    ///
+    /// Grabbing cursor locks the cursor to the boundaries of the window
+    /// while the window is focused.
+    ///
+    ///////////////////////////////////////////////////////////
+    void setCursorGrabbed(bool grab);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Set whether the cursor should be locked and hidden when focused to this window
+    /// \param relative True to lock the cursor
+    ///
+    ///////////////////////////////////////////////////////////
+    void setCursorLocked(bool locked);
+
+    ///////////////////////////////////////////////////////////
     /// \brief Get the native window handle
     ///
     /// The return type will vary based on OS type: for Windows the
@@ -131,7 +161,7 @@ public:
     ///
     ///////////////////////////////////////////////////////////
     Vector2i getSize() const;
-    
+
     ///////////////////////////////////////////////////////////
     /// \brief Check if a key is pressed
     ///
@@ -153,17 +183,33 @@ public:
     ///////////////////////////////////////////////////////////
     /// \brief Get the current mouse position
     ///
-    /// \return The current mouse position relative to the top-left of the window
+    /// \return The current mouse position relative to the top-left of the
+    /// window
     ///
     ///////////////////////////////////////////////////////////
     Vector2f getMousePosition() const;
+    
+    ///////////////////////////////////////////////////////////
+    /// \brief Check if mouse is grabbed
+    /// \return True if mouse is grabbed
+    ///
+    ///////////////////////////////////////////////////////////
+    bool isCursorGrabbed() const;
+    
+    ///////////////////////////////////////////////////////////
+    /// \brief Check if cursor is locked
+    /// \return True if cursor is locked
+    ///
+    ///////////////////////////////////////////////////////////
+    bool isCursorLocked() const;
 
 private:
     void* m_window;     //!< Internal window pointer
     bool m_shouldClose; //!< Should window close
 
-    static uint32_t s_numWindows;                //!< Track number of windows for proper cleanup
+    static uint32_t
+        s_numWindows; //!< Track number of windows for proper cleanup
     static HashMap<WindowId, Window*> s_windows; //!< Track window pointers
 };
 
-}
+} // namespace ply

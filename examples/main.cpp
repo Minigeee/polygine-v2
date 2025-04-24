@@ -336,11 +336,7 @@ public:
 
         // Create default resource binding
         m_binding = m_pipeline.createResourceBinding();
-        m_binding.set(
-            ply::Shader::Vertex,
-            "Camera",
-            context.buffers.camera
-        );
+        m_binding.set(ply::Shader::Vertex, "Camera", context.buffers.camera);
 
         // Load image texture
         ply::Image image1("examples/assets/DGLogo1.png");
@@ -380,11 +376,8 @@ public:
     }
 
     void render(ply::RenderPassContext& context) override {
-        m_binding.setOffset(
-            ply::Shader::Vertex,
-            "Camera",
-            context.offsets.camera
-        );
+        m_binding
+            .setOffset(ply::Shader::Vertex, "Camera", context.offsets.camera);
 
         m_device->context.setPipeline(m_pipeline);
         m_device->context.setVertexBuffers({&m_vertexBuffer, &m_instanceBuffer}
@@ -407,15 +400,105 @@ private:
     ply::Texture m_texture;
 };
 
+class OrbitControls {
+private:
+    ply::Vector2f m_cameraRot; //!< Camera pitch and yaw
+    ply::Vector3f m_cameraPos; //!< Camera position
+    float m_cameraDist;        //!< Distance from camera origin
+
+    bool m_isMoveClicked; //!< Is the move mouse button clicked
+
+public:
+    OrbitControls() :
+        m_cameraRot(0.0f),
+        m_cameraPos(0.0f, 2.0f, 0.0f),
+        m_cameraDist(2.0f),
+        m_isMoveClicked(false) {}
+
+    void addListeners(ply::Window& window, ply::Camera& camera) {
+        // Mouse move handler
+        window.addListener<ply::Event::MouseMove>(
+            [this, &camera, &window](const ply::Event::MouseMove& e) {
+                if (!m_isMoveClicked)
+                    return;
+
+                // Mouse delta
+                ply::Vector2f delta{e.dx, e.dy};
+
+                // Camera vectors
+                const ply::Vector3f& dir = camera.getDirection();
+                const ply::Vector3f& right = camera.getRightDir();
+                ply::Vector3f up = cross(right, dir);
+
+                float speed = m_cameraDist * 0.1f;
+
+                // Update pos/rot
+                if (window.isKeyPressed(ply::Scancode::LShift)) {
+                    constexpr float sensitivity = 0.02f;
+                    delta *= sensitivity * logf(0.05f * m_cameraDist + 20.0f);
+
+                    m_cameraPos += (delta.y * up + delta.x * right) * speed;
+                } else if (window.isKeyPressed(ply::Scancode::LCtrl
+                           )) {
+                    constexpr float sensitivity = 0.02f;
+                    delta *= sensitivity * logf(0.05f * m_cameraDist + 20.0f);
+
+                    m_cameraPos += (delta.y * dir + delta.x * right) * speed;
+                } else {
+                    constexpr float sensitivity = 0.1f;
+                    delta *= sensitivity;
+
+                    // Update camera
+                    m_cameraRot.x = fmod(m_cameraRot.x - delta.y, 360.0f);
+                    m_cameraRot.y = fmod(m_cameraRot.y - delta.x, 360.0f);
+
+                    if (m_cameraRot.x > 89.0f)
+                        m_cameraRot.x = 89.0f;
+                    else if (m_cameraRot.x < -89.0f)
+                        m_cameraRot.x = -89.0f;
+
+                    camera.setRotation(m_cameraRot);
+                }
+
+                // Update camera position
+                camera.setPosition(m_cameraPos - m_cameraDist * dir);
+            }
+        );
+
+        // Mouse button handler
+        window.addListener<ply::Event::MouseButton>(
+            [this, &window](const ply::Event::MouseButton& e) {
+                if (e.button != ply::Mouse::Button::Middle)
+                    return;
+
+                if (e.action == ply::InputAction::Press) {
+                    m_isMoveClicked = true;
+                    window.setCursorLocked(true);
+                } else if (e.action == ply::InputAction::Release) {
+                    m_isMoveClicked = false;
+                    window.setCursorLocked(false);
+                }
+            }
+        );
+
+        // Mouse scroll
+        window.addListener<ply::Event::MouseScroll>(
+            [this, &camera](const ply::Event::MouseScroll& e) {
+                m_cameraDist -= e.dy * log2f(m_cameraDist) * 1.0f;
+                if (m_cameraDist < 2.0f)
+                    m_cameraDist = 2.0f;
+
+                // Update camera position
+                camera.setPosition(
+                    m_cameraPos - m_cameraDist * camera.getDirection()
+                );
+            }
+        );
+    }
+};
+
 int main(int argc, char* argv[]) {
     // WIP :
-    // - [X] Implement ambient + directional lighting
-    // - [X] Implement point light volumes
-    // - [ ] Clean up:
-    //   - [X] Implement constant buffer offsets (create constant buffer for easy data pushing, create streaming buffer for easy instance data streaming)
-    //   - [X] Handle resizes
-    //   - [X] Add name function to gpu resource builders (and use them in the renderer class)
-    //   - [X] Handle when camera is inside point light volume
 
     // Logger
     loguru::add_file(
@@ -454,6 +537,10 @@ int main(int argc, char* argv[]) {
         camera.setDirection({0.0f, 0.0f, 1.0f});
         camera.setPerspective(90.0f, 8.0f / 6.0f, 0.1f, 100.0f);
 
+        // Controls
+        OrbitControls controls;
+        controls.addListeners(window, camera);
+
         // Lights
         world.entity()
             .add(ply::Transform())
@@ -477,18 +564,6 @@ int main(int argc, char* argv[]) {
                     std::sin(persistentClock.getElapsedTime().seconds() * 2.0f);
             }
         );
-
-        window.addListener<ply::Event::MouseButton>(
-            [](const ply::Event::MouseButton& event) {
-                std::cout << "Mouse button " << (int)event.button << " "
-                          << (int)event.action << "\n";
-            }
-        );
-
-        window.addListener<ply::Event::Key>([](const ply::Event::Key& event) {
-            std::cout << "Key " << (int)event.key << " " << (int)event.action
-                      << "\n";
-        });
 
         ply::Gamepad::getHandler().addListener<ply::Event::GamepadConnection>(
             [](const ply::Event::GamepadConnection& event) {

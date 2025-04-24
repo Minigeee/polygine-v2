@@ -1,5 +1,5 @@
 # Install dependencies
-include(CPM.cmake)
+include(../cmake/CPM.cmake)
 set(CPM_SOURCE_CACHE "${CMAKE_SOURCE_DIR}/.cache/cpm")
 
 # ---
@@ -51,6 +51,14 @@ CPMAddPackage("gh:libsdl-org/SDL#main")
 target_link_libraries(polygine PUBLIC SDL3::SDL3)
 
 # ---
+
+# Vulkan
+CPMAddPackage("gh:KhronosGroup/Vulkan-Headers#main")
+target_include_directories(polygine PRIVATE
+    ${Vulkan-Headers_SOURCE_DIR}/include
+)
+set(Vulkan_INCLUDE_DIRS ${Vulkan-Headers_SOURCE_DIR}/include)
+set(Vulkan_INCLUDE_DIR ${Vulkan-Headers_SOURCE_DIR}/include)
 
 # Diligent
 CPMAddPackage("gh:diligentgraphics/DiligentCore#master")

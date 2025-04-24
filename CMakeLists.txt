@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.14)
 project(polygine VERSION 0.1.0 LANGUAGES C CXX)
 
 # Set C++20 as the standard for the project
