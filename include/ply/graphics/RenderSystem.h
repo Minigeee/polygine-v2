@@ -157,6 +157,7 @@ protected:
     void addResource(GpuResource& resource, ResourceState state);
 
     RenderDevice* m_device; //!< Pointer to the render device used for rendering
+    Renderer* m_renderer; //!< Pointer to the renderer that owns this render system
 
 private:
     priv::RenderSystemImpl*

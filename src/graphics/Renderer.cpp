@@ -15,7 +15,7 @@ using namespace Diligent;
 #define MAX_NUM_DIR_LIGHTS 2
 #define MAX_NUM_SKELETAL_BONES 50
 
-#define POINT_LIGHT_ATTENUATION_CUTOFF 0.05f
+#define CAMERA_BUFFER_SIZE 10
 
 namespace ply {
 
@@ -73,10 +73,8 @@ struct CB_Camera {
 
 ///////////////////////////////////////////////////////////
 struct CS_DirLight {
-    Vector3f m_diffuse;
+    Vector3f m_color;
     float m_pad1;
-    Vector3f m_specular;
-    float m_pad2;
     Vector3f m_direction;
     int m_hasShadows;
 };
@@ -92,6 +90,26 @@ struct CB_Lights {
 };
 
 ///////////////////////////////////////////////////////////
+struct CS_Material {
+    Vector3f m_albedoColor;
+    float m_metallic;
+
+    Vector3f m_emissionColor;
+    float m_roughness;
+
+    Vector3f m_rimColor;
+    float m_specularIntensity;
+
+    Vector3f m_subsurfaceColor;
+    float m_emissionIntensity;
+
+    float m_rimIntensity;
+    float m_rimPower;
+    float m_subsurface;
+    int m_transparent;
+};
+
+///////////////////////////////////////////////////////////
 struct CB_Skeleton {
     Matrix4f m_bones[MAX_NUM_SKELETAL_BONES];
 };
@@ -100,7 +118,7 @@ struct CB_Skeleton {
 struct PointLightAttribs {
     Vector4f m_position; //!< xyz: position, w: radius
     Vector3f m_diffuse;
-    Vector3f m_coefficients; //!< x: constant, y: linear, z: quadratic
+    float m_attenuation; //!< Attenuation factor
 };
 
 ///////////////////////////////////////////////////////////
@@ -231,7 +249,7 @@ void Renderer::createRenderPass(TextureFormat targetFormat) {
 }
 
 ///////////////////////////////////////////////////////////
-void Renderer::setUpLightVolumePipeline(uint32_t maxPointLights) {
+void Renderer::setUpLightVolumePipeline(const RendererConfig& config) {
     // Check if glsl should be used
     const auto& deviceInfo =
         m_device->getImpl()->m_renderDevice->GetDeviceInfo();
@@ -250,10 +268,7 @@ void Renderer::setUpLightVolumePipeline(uint32_t maxPointLights) {
             .language(useGlsl ? Shader::Language::Glsl : Shader::Language::Hlsl)
             .type(Shader::Pixel)
             .file(useGlsl ? "light_volume_glsl.psh" : "light_volume_hlsl.psh")
-            .addMacro(
-                "POINT_LIGHT_ATTENUATION_CUTOFF",
-                POINT_LIGHT_ATTENUATION_CUTOFF
-            )
+            .addMacro("MAX_NUM_MATERIALS", config.maxMaterials)
             .load();
 
     // Pipeline
@@ -276,24 +291,24 @@ void Renderer::setUpLightVolumePipeline(uint32_t maxPointLights) {
             .addInputLayout(1, 1, 4, Type::Float32, true) // Light position +
                                                           // size
             .addInputLayout(2, 1, 3, Type::Float32, true) // Light color
-            .addInputLayout(3, 1, 3, Type::Float32, true) // Light attributes
+            .addInputLayout(3, 1, 1, Type::Float32, true) // Light attenuation
             .addVariable(
-                "g_colorTexture",
+                "sp_colorTexture",
                 Shader::Pixel,
                 ShaderResourceType::Mutable
             ) // Color texture
             .addVariable(
-                "g_depthTexture",
+                "sp_depthTexture",
                 Shader::Pixel,
                 ShaderResourceType::Mutable
             ) // Depth texture
             .addVariable(
-                "g_normalTexture",
+                "sp_normalTexture",
                 Shader::Pixel,
                 ShaderResourceType::Mutable
             ) // Normal texture
             .addVariable(
-                "g_materialTexture",
+                "sp_materialTexture",
                 Shader::Pixel,
                 ShaderResourceType::Mutable
             ) // Material texture
@@ -310,7 +325,10 @@ void Renderer::setUpLightVolumePipeline(uint32_t maxPointLights) {
             .create();
 
     // Point lights
-    createPointLightBuffers(maxPointLights);
+    createPointLightBuffers(config.maxPointLights);
+
+    m_lightVolumePipeline
+        .setStaticVariable(Shader::Pixel, "Materials", m_materialBuffer);
 
     // Transition resources
     StateTransitionDesc Barriers[] = {
@@ -392,13 +410,17 @@ void Renderer::createPointLightBuffers(uint32_t maxPointLights) {
 void Renderer::initialize(RenderDevice* device, const RendererConfig& config) {
     m_device = device;
 
+    // Create material array
+    m_materials = HandleArray<Material>(config.maxMaterials);
+
     uint32_t align = device->getConstantBufferAlignment();
 
     // Set up render pass
     createRenderPass(config.targetFormat);
 
     // Allocate camera buffer
-    uint32_t size = (sizeof(CB_Camera) + align - 1) / align * align;
+    uint32_t size =
+        (CAMERA_BUFFER_SIZE * sizeof(CB_Camera) + align - 1) / align * align;
     m_cameraBuffer =
         device->buffer()
             .name("Camera buffer")
@@ -413,6 +435,18 @@ void Renderer::initialize(RenderDevice* device, const RendererConfig& config) {
     m_lightsBuffer =
         device->buffer()
             .name("Lights buffer")
+            .access(ResourceAccess::Write)
+            .bind(ResourceBind::UniformBuffer)
+            .usage(ResourceUsage::Dynamic)
+            .size(size)
+            .create();
+
+    // Allocate materials buffer
+    size =
+        (config.maxMaterials * sizeof(CS_Material) + align - 1) / align * align;
+    m_materialBuffer =
+        device->buffer()
+            .name("Materials buffer")
             .access(ResourceAccess::Write)
             .bind(ResourceBind::UniformBuffer)
             .usage(ResourceUsage::Dynamic)
@@ -449,6 +483,7 @@ void Renderer::initialize(RenderDevice* device, const RendererConfig& config) {
             .type(Shader::Pixel)
             .file(useGlsl ? "deferred_glsl.psh" : "deferred_hlsl.psh")
             .addMacro("MAX_NUM_DIR_LIGHTS", MAX_NUM_DIR_LIGHTS)
+            .addMacro("MAX_NUM_MATERIALS", config.maxMaterials)
             .load();
 
     m_deferredPipeline =
@@ -458,25 +493,30 @@ void Renderer::initialize(RenderDevice* device, const RendererConfig& config) {
             .shader(&m_quadShader)
             .shader(&m_deferredShader)
             .addVariable(
-                "g_colorTexture",
+                "sp_colorTexture",
                 Shader::Pixel,
                 ShaderResourceType::Mutable
             ) // Color texture
             .addVariable(
-                "g_depthTexture",
+                "sp_depthTexture",
                 Shader::Pixel,
                 ShaderResourceType::Mutable
             ) // Depth texture
             .addVariable(
-                "g_normalTexture",
+                "sp_normalTexture",
                 Shader::Pixel,
                 ShaderResourceType::Mutable
             ) // Normal texture
             .addVariable(
-                "g_materialTexture",
+                "sp_materialTexture",
                 Shader::Pixel,
                 ShaderResourceType::Mutable
             ) // Material texture
+            .addVariable(
+                "Camera",
+                ply::Shader::Pixel,
+                ply::ShaderResourceType::Mutable
+            ) // Camera
             .topology(PrimitiveTopology::TriangleStrip)
             .cull(CullMode::None)
             .depth(false)
@@ -485,9 +525,11 @@ void Renderer::initialize(RenderDevice* device, const RendererConfig& config) {
     // Set variables
     m_deferredPipeline
         .setStaticVariable(Shader::Pixel, "Lights", m_lightsBuffer);
+    m_deferredPipeline
+        .setStaticVariable(Shader::Pixel, "Materials", m_materialBuffer);
 
     // Light volume pipeline
-    setUpLightVolumePipeline(config.maxPointLights);
+    setUpLightVolumePipeline(config);
 }
 
 ///////////////////////////////////////////////////////////
@@ -506,6 +548,7 @@ void Renderer::setWorld(World* world) {
 void Renderer::add(RenderSystem* system) {
     m_systems.push_back(system);
     system->m_device = m_device;
+    system->m_renderer = this;
 
     ContextConstantBuffers buffers({m_cameraBuffer, m_lightsBuffer});
     RenderSystem::Init data{m_device, buffers, m_renderPass};
@@ -513,10 +556,38 @@ void Renderer::add(RenderSystem* system) {
 }
 
 ///////////////////////////////////////////////////////////
+Material* Renderer::material() {
+    Handle handle = m_materials.push({});
+    return &m_materials[handle];
+}
+
+
+///////////////////////////////////////////////////////////
+Handle Renderer::registerMaterial(const Material& material) {
+    return m_materials.push(material);
+}
+
+///////////////////////////////////////////////////////////
+void Renderer::removeMaterial(Handle handle) {
+    m_materials.remove(handle);
+}
+
+///////////////////////////////////////////////////////////
+void Renderer::setMaterial(Handle handle, const Material& material) {
+    m_materials[handle] = material;
+}
+
+///////////////////////////////////////////////////////////
+Material& Renderer::getMaterial(Handle handle) {
+    return m_materials[handle];
+}
+
+///////////////////////////////////////////////////////////
 void Renderer::update(float dt) {
     // Discard previous
     m_cameraBuffer.discard();
     m_lightsBuffer.discard();
+    m_materialBuffer.discard();
 
     // Update all render systems
     for (RenderSystem* system : m_systems) {
@@ -527,13 +598,56 @@ void Renderer::update(float dt) {
     {
         CB_Lights lightsBlock;
         lightsBlock.m_ambient = Vector3f(0.1f);
-        lightsBlock.m_dirLights[0].m_diffuse = Vector3f(1.0f, 0.8f, 0.6f);
-        lightsBlock.m_dirLights[0].m_specular = Vector3f(1.0f, 1.0f, 1.0f);
+        lightsBlock.m_dirLights[0].m_color = Vector3f(1.0f, 0.8f, 0.6f);
         lightsBlock.m_dirLights[0].m_direction =
             normalize(Vector3f(0.0f, -1.0f, 0.2f));
         lightsBlock.m_numDirLights = 0;
 
         m_lightsBuffer.push(lightsBlock);
+    }
+
+    // Update material buffer
+    {
+        CS_Material* materialBlock = (CS_Material*)m_materialBuffer.map(
+            MapMode::Write,
+            MapFlag::Discard
+        );
+
+        // Default material
+        materialBlock[0].m_albedoColor = Vector3f(1.0f);
+        materialBlock[0].m_metallic = 0.0f;
+        materialBlock[0].m_emissionColor = Vector3f(1.0f);
+        materialBlock[0].m_roughness = 1.0f;
+        materialBlock[0].m_rimColor = Vector3f(1.0f);
+        materialBlock[0].m_specularIntensity = 1.0f;
+        materialBlock[0].m_subsurfaceColor = Vector3f(1.0f, 0.2f, 0.2f);
+        materialBlock[0].m_emissionIntensity = 1.0f;
+        materialBlock[0].m_rimIntensity = 1.0f;
+        materialBlock[0].m_rimPower = 3.0f;
+        materialBlock[0].m_subsurface = 0.0f;
+        materialBlock[0].m_transparent = 0;
+
+        // Push materials
+        const auto& materialArray = m_materials.data();
+        for (uint32_t i = 0; i < materialArray.size(); ++i) {
+            const auto& material = materialArray[i];
+
+            CS_Material& mat = materialBlock[i + 1];
+            mat.m_albedoColor = material.albedoColor;
+            mat.m_metallic = material.metallic;
+            mat.m_emissionColor = material.emissionColor;
+            mat.m_roughness = material.roughness;
+            mat.m_rimColor = material.rimColor;
+            mat.m_specularIntensity = material.specularIntensity;
+            mat.m_subsurfaceColor = material.subsurfaceColor;
+            mat.m_emissionIntensity = material.emissionIntensity;
+            mat.m_rimIntensity = material.rimIntensity;
+            mat.m_rimPower = material.rimPower;
+            mat.m_subsurface = material.subsurface;
+            mat.m_transparent = material.transparent ? 1 : 0;
+        }
+
+        m_materialBuffer.unmap();
     }
 
     // World updates
@@ -552,24 +666,12 @@ void Renderer::updatePointLights() {
     m_numPointLights = 0;
     m_queryPointLights.each(
         [&, this, pointLights](Transform& t, PointLight& light) {
-            // Calculate point light radius
-            const auto& coeffs = light.coefficients;
-
-            float c_prime = coeffs.x - 1.0 / POINT_LIGHT_ATTENUATION_CUTOFF;
-            float discriminant = coeffs.y * coeffs.y - 4.0 * coeffs.z * c_prime;
-
-            if (discriminant < 0.0) {
-                return; // Indicates no real solution (invalid light)
-            }
-
-            float sqrtDiscriminant = sqrt(discriminant);
-            float radius = (-coeffs.y + sqrtDiscriminant) / (2.0 * coeffs.z);
-
             // Update point light position
             PointLightAttribs attribs;
-            attribs.m_position = Vector4f(t.position, std::max(radius, 0.0f));
-            attribs.m_diffuse = light.diffuse;
-            attribs.m_coefficients = light.coefficients;
+            attribs.m_position =
+                Vector4f(t.position, std::max(light.range, 0.0f));
+            attribs.m_diffuse = light.color;
+            attribs.m_attenuation = light.attenuation;
 
             // Write to instance buffer
             pointLights[m_numPointLights++] = attribs;
@@ -696,10 +798,10 @@ ResourceBinding createDeferredResourceBinding(
     const priv::GBuffer& gbuffer
 ) {
     ResourceBinding binding = pipeline.createResourceBinding();
-    binding.set(Shader::Pixel, "g_colorTexture", gbuffer.m_colorTexture);
-    binding.set(Shader::Pixel, "g_depthTexture", gbuffer.m_depthZTexture);
-    binding.set(Shader::Pixel, "g_normalTexture", gbuffer.m_normalTexture);
-    binding.set(Shader::Pixel, "g_materialTexture", gbuffer.m_materialTexture);
+    binding.set(Shader::Pixel, "sp_colorTexture", gbuffer.m_colorTexture);
+    binding.set(Shader::Pixel, "sp_depthTexture", gbuffer.m_depthZTexture);
+    binding.set(Shader::Pixel, "sp_normalTexture", gbuffer.m_normalTexture);
+    binding.set(Shader::Pixel, "sp_materialTexture", gbuffer.m_materialTexture);
     return binding;
 }
 
@@ -897,6 +999,7 @@ priv::GBuffer& Renderer::getGBuffer(Framebuffer& target) {
             createDeferredResourceBinding(m_lightVolumePipeline, gbuffer);
 
         // Set variables
+        gbuffer.m_deferredBinding.set(Shader::Pixel, "Camera", m_cameraBuffer);
         gbuffer.m_lightVolumeBinding
             .set(Shader::Vertex, "Camera", m_cameraBuffer);
         gbuffer.m_lightVolumeBinding
@@ -923,7 +1026,7 @@ void Renderer::startRenderPass(const priv::GBuffer& gbuffer) {
     clearValues[0].Color[0] = 0.f;
     clearValues[0].Color[1] = 0.f;
     clearValues[0].Color[2] = 0.f;
-    clearValues[0].Color[3] = 0.f;
+    clearValues[0].Color[3] = 1.f;
 
     // Depth Z
     clearValues[1].Color[0] = 1.f;
@@ -966,6 +1069,9 @@ void Renderer::applyLighting(
     auto& deviceContext = m_device->context;
 
     // Deferred shading pass
+    gbuffer.m_deferredBinding
+        .setOffset(Shader::Pixel, "Camera", context.offsets.camera);
+
     deviceContext.setPipeline(m_deferredPipeline);
     deviceContext.setResourceBinding(gbuffer.m_deferredBinding);
     deviceContext.draw(4);

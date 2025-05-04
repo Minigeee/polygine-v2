@@ -6,6 +6,7 @@
 #include <ply/graphics/Buffer.h>
 #include <ply/graphics/Camera.h>
 #include <ply/graphics/Framebuffer.h>
+#include <ply/graphics/Material.h>
 #include <ply/graphics/Pipeline.h>
 #include <ply/graphics/RenderPass.h>
 #include <ply/graphics/Shader.h>
@@ -49,6 +50,8 @@ struct RendererConfig {
 
     /// Max number of point lights that can be rendered in a single frame
     uint32_t maxPointLights = 500;
+    /// Max number of materials that can be rendered in a single frame
+    uint32_t maxMaterials = 100;
 
     /// Max number of shadow cascade maps
     uint32_t maxShadowCascades = 3;
@@ -143,10 +146,48 @@ public:
     ///////////////////////////////////////////////////////////
     void setWorld(World* world);
 
+    ///////////////////////////////////////////////////////////
+    /// \brief Create and register a material
+    /// \return A pointer to the created material
+    ///
+    ///////////////////////////////////////////////////////////
+    Material* material();
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Register an existing material
+    /// \param material Material to register
+    /// \return The handle to the registered material
+    ///
+    ///////////////////////////////////////////////////////////
+    Handle registerMaterial(const Material& material);
+    
+    ///////////////////////////////////////////////////////////
+    /// \brief Remove a material
+    /// \param handle Handle to the material
+    ///
+    ///////////////////////////////////////////////////////////
+    void removeMaterial(Handle handle);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Set the material for a given handle
+    /// \param handle Handle to the material
+    /// \param material Material to set
+    ///
+    ///////////////////////////////////////////////////////////
+    void setMaterial(Handle handle, const Material& material);
+
+    ///////////////////////////////////////////////////////////
+    /// \brief Get a mutable reference to the material for a given handle
+    /// \param handle Handle to the material
+    /// \return The material for the given handle
+    ///
+    ///////////////////////////////////////////////////////////
+    Material& getMaterial(Handle handle);
+
 private:
     void createRenderPass(TextureFormat targetFormat);
 
-    void setUpLightVolumePipeline(uint32_t maxPointLights);
+    void setUpLightVolumePipeline(const RendererConfig& config);
 
     void createPointLightBuffers(uint32_t maxPointLights);
 
@@ -160,8 +201,7 @@ private:
 
     void startRenderPass(const priv::GBuffer& gbuffer);
 
-    void
-    applyLighting(priv::GBuffer& gbuffer, RenderPassContext& context);
+    void applyLighting(priv::GBuffer& gbuffer, RenderPassContext& context);
 
     void updatePointLights();
 
@@ -175,6 +215,7 @@ private:
     std::vector<Framebuffer*>
         m_shadowMaps; //!< Shadow maps, one for each cascade level
     std::vector<RenderSystem*> m_systems; //!< A list of render systems
+    HandleArray<Material> m_materials;    //!< A list of materials
 
     RenderPass m_renderPass; //!< Render pass wrapper
 
@@ -190,8 +231,9 @@ private:
     Buffer m_pointLightInstance;    //!< Instance buffer used for point lights
     uint32_t m_numPointLights;      //!< Number of point lights
 
-    Buffer m_cameraBuffer;    //!< Buffer used to store camrea uniforms
+    Buffer m_cameraBuffer;    //!< Buffer used to store camera uniforms
     Buffer m_lightsBuffer;    //!< Buffer used to store dynamic light uniforms
+    Buffer m_materialBuffer;  //!< Buffer used to store material uniforms
     Buffer m_shadowBuffer;    //!< Buffer used to store shadow data
     Buffer m_animationBuffer; //!< Buffer used to store animation data
 

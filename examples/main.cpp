@@ -358,6 +358,10 @@ public:
         addResource(m_vertexBuffer, ply::ResourceState::VertexBuffer);
         addResource(m_indexBuffer, ply::ResourceState::IndexBuffer);
         addResource(m_texture, ply::ResourceState::ShaderResource);
+
+        // Create material
+        m_material = m_renderer->material();
+        m_material->rimColor = ply::Vector3f(1.0f, 0.0f, 0.0f);
     }
 
     void update(float dt) override {
@@ -398,6 +402,7 @@ private:
     ply::Buffer m_vertexBuffer;
     ply::Buffer m_indexBuffer;
     ply::Texture m_texture;
+    ply::Material* m_material;
 };
 
 class OrbitControls {
@@ -438,8 +443,7 @@ public:
                     delta *= sensitivity * logf(0.05f * m_cameraDist + 20.0f);
 
                     m_cameraPos += (delta.y * up + delta.x * right) * speed;
-                } else if (window.isKeyPressed(ply::Scancode::LCtrl
-                           )) {
+                } else if (window.isKeyPressed(ply::Scancode::LCtrl)) {
                     constexpr float sensitivity = 0.02f;
                     delta *= sensitivity * logf(0.05f * m_cameraDist + 20.0f);
 
@@ -499,6 +503,12 @@ public:
 
 int main(int argc, char* argv[]) {
     // WIP :
+    // - [X] Move rim light to ambient shader
+    // - [X] Add emissive color to ambient shader (as constant for now)
+    // - [X] Add material constant buffer (that uses shortened material struct)
+    // - [X] Add a way to register material with renderer, and to push materials to constant buffer
+    // - [X] Access materials from shader through material id -> material buffer. Use it to get constant type material props
+    // - [X] Add material texture samplers to shared material file
 
     // Logger
     loguru::add_file(
@@ -547,8 +557,7 @@ int main(int argc, char* argv[]) {
             .add(ply::PointLight())
             .create([](ply::Transform& t, ply::PointLight& light) {
                 t.position = {0.0f, 0.0f, 0.0f};
-                light.coefficients.y *= 10.0f; // Reduce light intensity
-                light.coefficients.z *= 10.0f;
+                light.range = 1.0f;
             });
 
         // Move it around

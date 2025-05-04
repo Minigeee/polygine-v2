@@ -9,10 +9,8 @@ namespace ply {
 ///
 ///////////////////////////////////////////////////////////
 struct DirectionalLight {
-    /// The color of the diffuse lighting
-    Vector3f diffuse = Vector3f{1.0f};
-    /// The color of the specular lighting
-    Vector3f specular = Vector3f{1.0f};
+    /// The color of the light
+    Vector3f color = Vector3f{1.0f};
     /// The direction of the light
     Vector3f direction = {0.0f, -1.0f, 0.0f};
 };
@@ -37,12 +35,13 @@ struct DirectionalLight {
 ///
 ///////////////////////////////////////////////////////////
 struct PointLight {
-    /// The color of the diffuse lighting
-    Vector3f diffuse = Vector3f{1.0f};
-    /// The color of the specular lighting
-    Vector3f specular = Vector3f{1.0f};
-    /// The three attenuation coefficients
-    Vector3f coefficients = {1.0f, 0.35f, 0.44f};
+    /// The color of the light
+    Vector3f color = Vector3f{1.0f};
+    /// The range of the light
+    float range = 5.0f;
+    /// The attenuation factor of the light, determines how quickly the light
+    /// fades out with distance
+    float attenuation = 2.0f;
 };
 
 ///////////////////////////////////////////////////////////
