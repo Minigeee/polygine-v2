@@ -18,16 +18,8 @@ layout(input_attachment_index = 3, binding = 3) uniform highp subpassInput sp_ma
 layout(location = 0) out vec4 out_Color;
 
 ///////////////////////////////////////////////////////////
-struct DirLight {
-    vec4 color;
-    vec4 direction;
-};
-
-///////////////////////////////////////////////////////////
 uniform Lights {
     vec4 g_ambient;
-    DirLight g_dirLights[MAX_NUM_DIR_LIGHTS];
-    int g_numDirLights;
 };
 
 ///////////////////////////////////////////////////////////
@@ -38,11 +30,6 @@ vec3 getFragPos(float depth) {
 
     return pos.xyz / pos.w;
 }
-
-///////////////////////////////////////////////////////////
-// const vec3 emissionColor = vec3(1.0, 1.0, 1.0);
-// const vec3 rimColor = vec3(1.0, 1.0, 1.0);         // White rim light for now
-// const float rimPower = 3.0f;                  // Rim light power
 
 void main() {
     float depth = subpassLoad(sp_depthTexture).x;
@@ -64,22 +51,6 @@ void main() {
 
     // Base color
     vec3 result = albedo * g_ambient.rgb;
-
-    for (int i = 0; i < g_numDirLights; ++i) {
-        float diffFactor = 0.1f;
-
-        // Get diffuse factor
-        float diff = dot(normal, -g_dirLights[i].direction.xyz);
-        float diff1 = diffFactor * diff + diffFactor;
-        float diff2 = (1.0f - diffFactor) * diff + diffFactor;
-        diff = diff < 0.0f ? diff1 : diff2;
-        
-        // Diffuse color
-        vec3 diffuse = diff * g_dirLights[i].color.rgb * albedo;
-        
-        // Add to result
-        result += diffuse;
-    }
     
     // Get view vector
     vec3 worldPos = getFragPos(depth);

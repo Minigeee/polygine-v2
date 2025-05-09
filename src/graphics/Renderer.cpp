@@ -49,7 +49,9 @@ namespace priv {
                                        //!< holding render result before copying
                                        //!< to main back buffer
 
-        ResourceBinding m_deferredBinding;    //!< Deferred pipeline binding
+        ResourceBinding m_ambientBinding; //!< Ambient pipeline binding
+        ResourceBinding
+            m_dirLightBinding; //!< Directional light pipeline binding
         ResourceBinding m_lightVolumeBinding; //!< Light volume pipeline binding
     };
 
@@ -83,10 +85,6 @@ struct CS_DirLight {
 struct CB_Lights {
     Vector3f m_ambient;
     float m_pad1;
-    CS_DirLight m_dirLights[MAX_NUM_DIR_LIGHTS];
-    // UniformStruct_PointLight		m_pointLights[MAX_NUM_POINT_LIGHTS];
-    int m_numDirLights;
-    float m_pad2[3];
 };
 
 ///////////////////////////////////////////////////////////
@@ -115,6 +113,12 @@ struct CB_Skeleton {
 };
 
 ///////////////////////////////////////////////////////////
+struct DirLightAttribs {
+    Vector3f m_direction; //!< xyz: direction
+    Vector3f m_diffuse;
+};
+
+///////////////////////////////////////////////////////////
 struct PointLightAttribs {
     Vector4f m_position; //!< xyz: position, w: radius
     Vector3f m_diffuse;
@@ -125,6 +129,7 @@ struct PointLightAttribs {
 Renderer::Renderer() :
     m_impl(std::make_unique<priv::RendererImpl>()),
     m_ambient(0.1f),
+    m_numDirLights(0),
     m_numPointLights(0) {}
 
 ///////////////////////////////////////////////////////////
@@ -246,6 +251,101 @@ void Renderer::createRenderPass(TextureFormat targetFormat) {
     // Set wrapper
     m_renderPass =
         RenderPass(m_device->getImpl(), m_impl->m_renderPass, Handle());
+}
+
+///////////////////////////////////////////////////////////
+void Renderer::setUpDirLightsPipeline(const RendererConfig& config) {
+    // Check if glsl should be used
+    const auto& deviceInfo =
+        m_device->getImpl()->m_renderDevice->GetDeviceInfo();
+    bool useGlsl = deviceInfo.IsVulkanDevice() || deviceInfo.IsMetalDevice();
+
+    // Shaders
+    m_dirLightShaderV =
+        m_device->shader()
+            .name("Directional light vertex shader")
+            .type(Shader::Vertex)
+            .file("dir_light.vsh")
+            .load();
+    m_dirLightShaderP =
+        m_device->shader()
+            .name("Directional light pixel shader")
+            .language(useGlsl ? Shader::Language::Glsl : Shader::Language::Hlsl)
+            .type(Shader::Pixel)
+            .file(useGlsl ? "dir_light_glsl.psh" : "dir_light_hlsl.psh")
+            .addMacro("MAX_NUM_MATERIALS", config.maxMaterials)
+            .load();
+
+    // Pipeline
+    m_dirLightPipeline =
+        m_device->pipeline()
+            .name("Directional light pipeline")
+            .renderPass(m_renderPass, 1)
+            .shader(&m_dirLightShaderV)
+            .shader(&m_dirLightShaderP)
+            .topology(PrimitiveTopology::TriangleStrip)
+            .cull(CullMode::None)
+            .depth(false)
+            .blend(true)
+            .blendFactors(
+                BlendFactor::One,
+                BlendFactor::One,
+                BlendOperation::Add
+            )
+            .addInputLayout(0, 0, 3, Type::Float32, true) // Light direction
+            .addInputLayout(1, 0, 3, Type::Float32, true) // Light color
+            .addVariable(
+                "sp_colorTexture",
+                Shader::Pixel,
+                ShaderResourceType::Mutable
+            ) // Color texture
+            .addVariable(
+                "sp_depthTexture",
+                Shader::Pixel,
+                ShaderResourceType::Mutable
+            ) // Depth texture
+            .addVariable(
+                "sp_normalTexture",
+                Shader::Pixel,
+                ShaderResourceType::Mutable
+            ) // Normal texture
+            .addVariable(
+                "sp_materialTexture",
+                Shader::Pixel,
+                ShaderResourceType::Mutable
+            ) // Material texture
+            .addVariable(
+                "Camera",
+                ply::Shader::Pixel,
+                ply::ShaderResourceType::Mutable
+            ) // Camera
+            .create();
+
+    m_dirLightPipeline
+        .setStaticVariable(Shader::Pixel, "Materials", m_materialBuffer);
+
+    // Create instance buffer
+    m_dirLightInstance =
+        m_device->buffer()
+            .name("Directional light instance buffer")
+            .access(ResourceAccess::Write)
+            .bind(ResourceBind::VertexBuffer)
+            .usage(ResourceUsage::Dynamic)
+            .size(sizeof(DirLightAttribs) * config.maxDirLights)
+            .create();
+
+    // Transition resources
+    StateTransitionDesc barriers[] = {
+        {BUFFER(m_dirLightInstance.getResource()),
+         RESOURCE_STATE_UNKNOWN,
+         RESOURCE_STATE_VERTEX_BUFFER,
+         STATE_TRANSITION_FLAG_UPDATE_STATE},
+    };
+
+    m_device->getImpl()->m_deviceContext->TransitionResourceStates(
+        _countof(barriers),
+        barriers
+    );
 }
 
 ///////////////////////////////////////////////////////////
@@ -476,22 +576,22 @@ void Renderer::initialize(RenderDevice* device, const RendererConfig& config) {
             .type(Shader::Vertex)
             .file("quad.vsh")
             .load();
-    m_deferredShader =
+    m_ambientShader =
         device->shader()
-            .name("Deferred ambient shader")
+            .name("Ambient light shader")
             .language(useGlsl ? Shader::Language::Glsl : Shader::Language::Hlsl)
             .type(Shader::Pixel)
-            .file(useGlsl ? "deferred_glsl.psh" : "deferred_hlsl.psh")
+            .file(useGlsl ? "ambient_glsl.psh" : "ambient_hlsl.psh")
             .addMacro("MAX_NUM_DIR_LIGHTS", MAX_NUM_DIR_LIGHTS)
             .addMacro("MAX_NUM_MATERIALS", config.maxMaterials)
             .load();
 
-    m_deferredPipeline =
+    m_ambientPipeline =
         device->pipeline()
             .name("Deferred ambient pipeline")
             .renderPass(m_renderPass, 1)
             .shader(&m_quadShader)
-            .shader(&m_deferredShader)
+            .shader(&m_ambientShader)
             .addVariable(
                 "sp_colorTexture",
                 Shader::Pixel,
@@ -523,10 +623,13 @@ void Renderer::initialize(RenderDevice* device, const RendererConfig& config) {
             .create();
 
     // Set variables
-    m_deferredPipeline
+    m_ambientPipeline
         .setStaticVariable(Shader::Pixel, "Lights", m_lightsBuffer);
-    m_deferredPipeline
+    m_ambientPipeline
         .setStaticVariable(Shader::Pixel, "Materials", m_materialBuffer);
+
+    // Directional light pipeline
+    setUpDirLightsPipeline(config);
 
     // Light volume pipeline
     setUpLightVolumePipeline(config);
@@ -539,6 +642,8 @@ void Renderer::setWorld(World* world) {
 
     m_world = world;
 
+    // Directional light query
+    m_queryDirLights = m_world->query().match<DirectionalLight>().compile();
     // Point light query
     m_queryPointLights =
         m_world->query().match<Transform, PointLight>().compile();
@@ -560,7 +665,6 @@ Material* Renderer::material() {
     Handle handle = m_materials.push({});
     return &m_materials[handle];
 }
-
 
 ///////////////////////////////////////////////////////////
 Handle Renderer::registerMaterial(const Material& material) {
@@ -598,10 +702,6 @@ void Renderer::update(float dt) {
     {
         CB_Lights lightsBlock;
         lightsBlock.m_ambient = Vector3f(0.1f);
-        lightsBlock.m_dirLights[0].m_color = Vector3f(1.0f, 0.8f, 0.6f);
-        lightsBlock.m_dirLights[0].m_direction =
-            normalize(Vector3f(0.0f, -1.0f, 0.2f));
-        lightsBlock.m_numDirLights = 0;
 
         m_lightsBuffer.push(lightsBlock);
     }
@@ -652,8 +752,33 @@ void Renderer::update(float dt) {
 
     // World updates
     if (m_world) {
+        updateDirLights();
         updatePointLights();
     }
+}
+
+///////////////////////////////////////////////////////////
+void Renderer::updateDirLights() {
+    // Update directional lights in the world
+    DirLightAttribs* dirLights = (DirLightAttribs*)m_dirLightInstance.map(
+        MapMode::Write,
+        MapFlag::Discard
+    );
+
+    m_numDirLights = 0;
+    m_queryDirLights.each(
+        [&, this, dirLights](Transform& t, DirectionalLight& light) {
+            // Update directional light attributes
+            DirLightAttribs attribs;
+            attribs.m_direction = normalize(light.direction);
+            attribs.m_diffuse = light.color;
+
+            // Write to instance buffer
+            dirLights[m_numDirLights++] = attribs;
+        }
+    );
+
+    m_dirLightInstance.unmap();
 }
 
 ///////////////////////////////////////////////////////////
@@ -993,13 +1118,16 @@ priv::GBuffer& Renderer::getGBuffer(Framebuffer& target) {
         gbuffer.m_size = Vector2u(scDesc.Width, scDesc.Height);
 
         // Create resource bindings
-        gbuffer.m_deferredBinding =
-            createDeferredResourceBinding(m_deferredPipeline, gbuffer);
+        gbuffer.m_ambientBinding =
+            createDeferredResourceBinding(m_ambientPipeline, gbuffer);
+        gbuffer.m_dirLightBinding =
+            createDeferredResourceBinding(m_dirLightPipeline, gbuffer);
         gbuffer.m_lightVolumeBinding =
             createDeferredResourceBinding(m_lightVolumePipeline, gbuffer);
 
         // Set variables
-        gbuffer.m_deferredBinding.set(Shader::Pixel, "Camera", m_cameraBuffer);
+        gbuffer.m_ambientBinding.set(Shader::Pixel, "Camera", m_cameraBuffer);
+        gbuffer.m_dirLightBinding.set(Shader::Pixel, "Camera", m_cameraBuffer);
         gbuffer.m_lightVolumeBinding
             .set(Shader::Vertex, "Camera", m_cameraBuffer);
         gbuffer.m_lightVolumeBinding
@@ -1068,13 +1196,24 @@ void Renderer::applyLighting(
 ) {
     auto& deviceContext = m_device->context;
 
-    // Deferred shading pass
-    gbuffer.m_deferredBinding
+    // Ambient shading pass
+    gbuffer.m_ambientBinding
         .setOffset(Shader::Pixel, "Camera", context.offsets.camera);
 
-    deviceContext.setPipeline(m_deferredPipeline);
-    deviceContext.setResourceBinding(gbuffer.m_deferredBinding);
+    deviceContext.setPipeline(m_ambientPipeline);
+    deviceContext.setResourceBinding(gbuffer.m_ambientBinding);
     deviceContext.draw(4);
+
+    // Directional lights
+    if (m_numDirLights > 0) {
+        gbuffer.m_dirLightBinding
+            .setOffset(Shader::Pixel, "Camera", context.offsets.camera);
+
+        deviceContext.setPipeline(m_dirLightPipeline);
+        deviceContext.setResourceBinding(gbuffer.m_dirLightBinding);
+        deviceContext.setVertexBuffers({&m_dirLightInstance});
+        deviceContext.draw(4, m_numDirLights);
+    }
 
     // Point lights
     if (m_numPointLights > 0) {

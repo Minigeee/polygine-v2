@@ -27,5 +27,5 @@ void main(in  PSInput  PSIn,
     PSOut.DepthZ = DepthToNormalizedDeviceZ(PSIn.Pos.z);
     PSOut.Normal = float4(PSIn.Normal, 0.0); // Assuming a flat surface facing the camera
 
-    PSOut.Material = float4(0.0, 0.2, 0.0, 1.5 / 100.0);
+    PSOut.Material = float4(0.0, 0.0, 0.0, 1.5 / 100.0);
 }

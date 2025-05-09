@@ -48,6 +48,8 @@ struct RendererConfig {
     /// the default framebuffer format of the render device).
     TextureFormat targetFormat = TextureFormat::Unknown;
 
+    /// Max number of directional lights that can be rendered in a single frame
+    uint32_t maxDirLights = 10;
     /// Max number of point lights that can be rendered in a single frame
     uint32_t maxPointLights = 500;
     /// Max number of materials that can be rendered in a single frame
@@ -187,6 +189,8 @@ public:
 private:
     void createRenderPass(TextureFormat targetFormat);
 
+    void setUpDirLightsPipeline(const RendererConfig& config);
+
     void setUpLightVolumePipeline(const RendererConfig& config);
 
     void createPointLightBuffers(uint32_t maxPointLights);
@@ -202,6 +206,8 @@ private:
     void startRenderPass(const priv::GBuffer& gbuffer);
 
     void applyLighting(priv::GBuffer& gbuffer, RenderPassContext& context);
+
+    void updateDirLights();
 
     void updatePointLights();
 
@@ -219,9 +225,15 @@ private:
 
     RenderPass m_renderPass; //!< Render pass wrapper
 
-    Pipeline m_deferredPipeline; //!< Pipeline used for deferred rendering
-    Shader m_quadShader;         //!< Shader used to render lighting
-    Shader m_deferredShader;     //!< Shader used to render lighting
+    Pipeline m_ambientPipeline; //!< Pipeline used for deferred ambient rendering
+    Shader m_quadShader;         //!< Shader used to render quad
+    Shader m_ambientShader;     //!< Shader used to render ambient lighting
+
+    Pipeline m_dirLightPipeline; //!< Pipeline used for directional lights
+    Shader m_dirLightShaderV;    //!< Shader used for directional lights (vertex)
+    Shader m_dirLightShaderP;    //!< Shader used for directional lights (pixel)
+    Buffer m_dirLightInstance;    //!< Instance buffer used for directional lights
+    uint32_t m_numDirLights;      //!< Number of directional lights
 
     Pipeline m_lightVolumePipeline; //!< Pipeline used for light volumes
     Shader m_lightVolumeShaderV;    //!< Shader used for light volumes (vertex)

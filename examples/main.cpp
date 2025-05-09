@@ -554,14 +554,14 @@ int main(int argc, char* argv[]) {
         // Lights
         world.entity()
             .add(ply::Transform())
-            .add(ply::PointLight())
-            .create([](ply::Transform& t, ply::PointLight& light) {
+            .add(ply::DirectionalLight())
+            .create([](ply::Transform& t, ply::DirectionalLight& light) {
                 t.position = {0.0f, 0.0f, 0.0f};
-                light.range = 1.0f;
+                light.direction = ply::normalize(ply::Vector3f{0.6f, -1.0f, 0.2f});
             });
 
         // Move it around
-        ply::Clock persistentClock;
+        /* ply::Clock persistentClock;
         world.system().match<ply::Transform, ply::PointLight>().each(
             [&persistentClock](
                 ply::QueryIterator it,
@@ -572,7 +572,7 @@ int main(int argc, char* argv[]) {
                     0.5f *
                     std::sin(persistentClock.getElapsedTime().seconds() * 2.0f);
             }
-        );
+        ); */
 
         ply::Gamepad::getHandler().addListener<ply::Event::GamepadConnection>(
             [](const ply::Event::GamepadConnection& event) {
