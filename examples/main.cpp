@@ -262,7 +262,7 @@ void populateInstanceBuffer(ply::Buffer& buffer, size_t gridSize) {
     buffer.update(instanceData);
 }
 
-constexpr size_t GRID_SIZE = 5;
+constexpr size_t GRID_SIZE = 3;
 constexpr size_t MAX_INSTANCES = GRID_SIZE * GRID_SIZE * GRID_SIZE;
 
 class TestSystem : public ply::RenderSystem {
@@ -276,30 +276,40 @@ public:
         m_pixelShader =
             m_device->shader().type(ply::Shader::Pixel).file("cube.psh").load();
 
+        auto builder = m_device->pipeline();
+        builder.shader(&m_vertexShader)
+            .addInputLayout(0, 0, 3, ply::Type::Float32)       // Position
+            .addInputLayout(1, 0, 2, ply::Type::Float32)       // UV
+            .addInputLayout(2, 0, 3, ply::Type::Float32)       // Normal
+            .addInputLayout(3, 1, 4, ply::Type::Float32, true) // Instance
+                                                               // matrix
+            .addInputLayout(4, 1, 4, ply::Type::Float32, true)
+            .addInputLayout(5, 1, 4, ply::Type::Float32, true)
+            .addInputLayout(6, 1, 4, ply::Type::Float32, true)
+            .addInputLayout(7, 1, 1, ply::Type::Float32, true) // Tex index
+            .addVariable(
+                "Camera",
+                ply::Shader::Vertex,
+                ply::ShaderResourceType::Mutable
+            ); // Camera
+
+        // Shadow pipeline
+        m_shadowPipeline =
+            builder.name("Cubes shadow pipeline")
+                .targetFormatsFrom(context.shadowMap)
+                .cull(ply::CullMode::Front)
+                .create();
+
+        // Default pipeline
         m_pipeline =
-            m_device->pipeline()
+            builder.name("Cubes pipeline")
                 .renderPass(context.renderPass)
-                .shader(&m_vertexShader)
                 .shader(&m_pixelShader)
-                .addInputLayout(0, 0, 3, ply::Type::Float32)       // Position
-                .addInputLayout(1, 0, 2, ply::Type::Float32)       // UV
-                .addInputLayout(2, 0, 3, ply::Type::Float32)       // Normal
-                .addInputLayout(3, 1, 4, ply::Type::Float32, true) // Instance
-                                                                   // matrix
-                .addInputLayout(4, 1, 4, ply::Type::Float32, true)
-                .addInputLayout(5, 1, 4, ply::Type::Float32, true)
-                .addInputLayout(6, 1, 4, ply::Type::Float32, true)
-                .addInputLayout(7, 1, 1, ply::Type::Float32, true) // Tex index
                 .addVariable(
                     "g_Texture",
                     ply::Shader::Pixel,
                     ply::ShaderResourceType::Mutable
                 ) // Texture
-                .addVariable(
-                    "Camera",
-                    ply::Shader::Vertex,
-                    ply::ShaderResourceType::Mutable
-                ) // Camera
                 .addSampler("g_Texture", ply::Shader::Pixel)
                 .cull(ply::CullMode::Back)
                 .create();
@@ -314,6 +324,11 @@ public:
                 .create();
 
         // Static variables
+        m_shadowPipeline.setStaticVariable(
+            ply::Shader::Vertex,
+            "Constants",
+            m_constantsBuffer
+        );
         m_pipeline.setStaticVariable(
             ply::Shader::Vertex,
             "Constants",
@@ -336,7 +351,23 @@ public:
 
         // Create default resource binding
         m_binding = m_pipeline.createResourceBinding();
-        m_binding.set(ply::Shader::Vertex, "Camera", context.buffers.camera);
+        m_binding.setVariable(
+            ply::Shader::Vertex,
+            "Camera",
+            context.buffers.camera,
+            0,
+            context.sizes.camera
+        );
+
+        // Shadow binding
+        m_shadowBinding = m_shadowPipeline.createResourceBinding();
+        m_shadowBinding.setVariable(
+            ply::Shader::Vertex,
+            "Camera",
+            context.buffers.camera,
+            0,
+            context.sizes.camera
+        );
 
         // Load image texture
         ply::Image image1("examples/assets/DGLogo1.png");
@@ -350,7 +381,7 @@ public:
             .mips(5)
             .create();
         // clang-format on
-        m_binding.set(ply::Shader::Pixel, "g_Texture", m_texture);
+        m_binding.setVariable(ply::Shader::Pixel, "g_Texture", m_texture);
 
         // Register resources
         addResource(m_constantsBuffer, ply::ResourceState::ConstantBuffer);
@@ -380,21 +411,37 @@ public:
     }
 
     void render(ply::RenderPassContext& context) override {
-        m_binding
-            .setOffset(ply::Shader::Vertex, "Camera", context.offsets.camera);
+        // Set correct pipeline and binding
+        if (context.pass == ply::RenderPass::Shadow) {
+            m_shadowBinding.setDynamicOffset(
+                ply::Shader::Vertex,
+                "Camera",
+                context.offsets.camera
+            );
+            m_device->context.setPipeline(m_shadowPipeline);
+            m_device->context.setResourceBinding(m_shadowBinding);
+        } else {
+            m_binding.setDynamicOffset(
+                ply::Shader::Vertex,
+                "Camera",
+                context.offsets.camera
+            );
+            m_device->context.setPipeline(m_pipeline);
+            m_device->context.setResourceBinding(m_binding);
+        }
 
-        m_device->context.setPipeline(m_pipeline);
         m_device->context.setVertexBuffers({&m_vertexBuffer, &m_instanceBuffer}
         );
         m_device->context.setIndexBuffer(m_indexBuffer);
-        m_device->context.setResourceBinding(m_binding);
         m_device->context.drawIndexed(36, MAX_INSTANCES);
     }
 
 private:
     ply::Clock m_clock;
     ply::Pipeline m_pipeline;
+    ply::Pipeline m_shadowPipeline;
     ply::ResourceBinding m_binding;
+    ply::ResourceBinding m_shadowBinding;
     ply::Shader m_vertexShader;
     ply::Shader m_pixelShader;
     ply::Buffer m_constantsBuffer;
@@ -503,12 +550,20 @@ public:
 
 int main(int argc, char* argv[]) {
     // WIP :
-    // - [X] Move rim light to ambient shader
-    // - [X] Add emissive color to ambient shader (as constant for now)
-    // - [X] Add material constant buffer (that uses shortened material struct)
-    // - [X] Add a way to register material with renderer, and to push materials to constant buffer
-    // - [X] Access materials from shader through material id -> material buffer. Use it to get constant type material props
-    // - [X] Add material texture samplers to shared material file
+    // - [X] Util function for creating shadow pipelines (didn't end up doing
+    // this)
+    // - [X] Add shadow camera to renderer context (use basic ortho origin
+    // centered camera for now)
+    // - [X] Add shadow map to renderer init context, add shadow pass handler to
+    // render system
+    // - [X] Do shadow pass, render output to a shadow map visualizer
+    // - [X] Add shadow sampling to dir light shader (try adding a gaussian blur
+    // to it)
+    // - [X] Figure out why we need to transpose the proj-view matrices (camera,
+    // shadow) - Answer: HLSL matrices are row-major while GLSL matrices are
+    // column-major.
+    // - [ ] Set up cascade system for shadow map, making shadow cams follow the
+    // main camera
 
     // Logger
     loguru::add_file(
@@ -557,7 +612,8 @@ int main(int argc, char* argv[]) {
             .add(ply::DirectionalLight())
             .create([](ply::Transform& t, ply::DirectionalLight& light) {
                 t.position = {0.0f, 0.0f, 0.0f};
-                light.direction = ply::normalize(ply::Vector3f{0.6f, -1.0f, 0.2f});
+                light.direction =
+                    ply::normalize(ply::Vector3f{0.6f, -1.0f, 0.2f});
             });
 
         // Move it around
@@ -586,6 +642,15 @@ int main(int argc, char* argv[]) {
         ply::Clock clock;
 
         while (!window.shouldClose()) {
+            static float logTimer = 0.0f;
+            logTimer += clock.getElapsedTime().seconds();
+            if (logTimer >= 1.0f) {
+                const auto& pos = camera.getPosition();
+                std::cout << "Camera position: (" << pos.x << ", " << pos.y
+                          << ", " << pos.z << ")\n";
+                logTimer = 0.0f;
+            }
+
             ply::Input::poll();
 
             if (gamepads.size() > 0) {

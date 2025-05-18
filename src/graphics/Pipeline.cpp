@@ -18,10 +18,12 @@ ResourceBinding::~ResourceBinding() {
 GPU_RESOURCE_MOVE_DEFS(ResourceBinding, m_resourceBindings)
 
 ///////////////////////////////////////////////////////////
-void ResourceBinding::set(
+void ResourceBinding::setVariable(
     Shader::Type stages,
     const char* name,
-    const Buffer& resource
+    const Buffer& resource,
+    uint32_t offset,
+    uint32_t size
 ) {
     CHECK_F(m_device && m_resource, "resource binding not initialized");
     auto var =
@@ -31,14 +33,19 @@ void ResourceBinding::set(
                 name
             );
 
-    if (var)
-        var->Set(static_cast<Diligent::IBuffer*>(resource.getResource()));
-    else
+    if (var) {
+        if (offset == 0 && size == 0) {
+            var->Set(BUFFER(resource.getResource()));
+        } else {
+            var->SetBufferRange(BUFFER(resource.getResource()), offset, size);
+        }
+    } else {
         LOG_F(WARNING, "resource binding variable not found %s", name);
+    }
 }
 
 ///////////////////////////////////////////////////////////
-void ResourceBinding::set(
+void ResourceBinding::setVariable(
     Shader::Type stages,
     const char* name,
     const Texture& resource
@@ -63,7 +70,7 @@ void ResourceBinding::set(
 }
 
 ///////////////////////////////////////////////////////////
-void ResourceBinding::setOffset(
+void ResourceBinding::setDynamicOffset(
     Shader::Type stages,
     const char* name,
     uint32_t offset
@@ -186,7 +193,7 @@ PipelineBuilder& PipelineBuilder::name(const char* name) {
 }
 
 ///////////////////////////////////////////////////////////
-PipelineBuilder& PipelineBuilder::targetFormat(const Framebuffer& target) {
+PipelineBuilder& PipelineBuilder::targetFormatsFrom(const Framebuffer& target) {
     auto& graphics = m_desc->GraphicsPipeline;
 
     m_numTargets = target.getNumColorTextures();
@@ -201,6 +208,11 @@ PipelineBuilder& PipelineBuilder::targetFormat(const Framebuffer& target) {
                 TEXTURE(texture->getResource())->GetDesc().Format;
             m_numTargets++;
         }
+    }
+    
+    // If no render targets, set to unknown
+    if (m_numTargets == 0) {
+        graphics.RTVFormats[0] = Diligent::TEX_FORMAT_UNKNOWN;
     }
 
     // Set depth stencil format

@@ -37,7 +37,15 @@ void Camera::setPosition(const Vector3f& pos) {
 ///////////////////////////////////////////////////////////
 void Camera::setDirection(const Vector3f& dir) {
     m_direction = normalize(dir);
-    m_rightDir = normalize(cross(m_direction, Vector3f(0.0f, 1.0f, 0.0f)));
+
+    // Handle the case when direction is parallel to up vector
+    Vector3f up(0.0f, 1.0f, 0.0f);
+    if (std::abs(dot(m_direction, up)) > 0.999f) {
+        // If looking almost straight up or down, use a different up vector
+        up = Vector3f(0.0f, 0.0f, 1.0f);
+    }
+    m_rightDir = normalize(cross(m_direction, up));
+    
     m_isViewDirty = true;
 }
 

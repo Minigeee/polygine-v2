@@ -12,7 +12,6 @@
 using namespace Diligent;
 
 ///////////////////////////////////////////////////////////
-#define MAX_NUM_DIR_LIGHTS 2
 #define MAX_NUM_SKELETAL_BONES 50
 
 #define CAMERA_BUFFER_SIZE 10
@@ -74,14 +73,6 @@ struct CB_Camera {
 };
 
 ///////////////////////////////////////////////////////////
-struct CS_DirLight {
-    Vector3f m_color;
-    float m_pad1;
-    Vector3f m_direction;
-    int m_hasShadows;
-};
-
-///////////////////////////////////////////////////////////
 struct CB_Lights {
     Vector3f m_ambient;
     float m_pad1;
@@ -105,6 +96,12 @@ struct CS_Material {
     float m_rimPower;
     float m_subsurface;
     int m_transparent;
+};
+
+///////////////////////////////////////////////////////////
+struct CS_Shadow {
+    Matrix4f m_lightProjView;
+    float m_shadowMapSize;
 };
 
 ///////////////////////////////////////////////////////////
@@ -255,11 +252,6 @@ void Renderer::createRenderPass(TextureFormat targetFormat) {
 
 ///////////////////////////////////////////////////////////
 void Renderer::setUpDirLightsPipeline(const RendererConfig& config) {
-    // Check if glsl should be used
-    const auto& deviceInfo =
-        m_device->getImpl()->m_renderDevice->GetDeviceInfo();
-    bool useGlsl = deviceInfo.IsVulkanDevice() || deviceInfo.IsMetalDevice();
-
     // Shaders
     m_dirLightShaderV =
         m_device->shader()
@@ -270,9 +262,11 @@ void Renderer::setUpDirLightsPipeline(const RendererConfig& config) {
     m_dirLightShaderP =
         m_device->shader()
             .name("Directional light pixel shader")
-            .language(useGlsl ? Shader::Language::Glsl : Shader::Language::Hlsl)
+            .language(
+                m_usingGlsl ? Shader::Language::Glsl : Shader::Language::Hlsl
+            )
             .type(Shader::Pixel)
-            .file(useGlsl ? "dir_light_glsl.psh" : "dir_light_hlsl.psh")
+            .file(m_usingGlsl ? "dir_light_glsl.psh" : "dir_light_hlsl.psh")
             .addMacro("MAX_NUM_MATERIALS", config.maxMaterials)
             .load();
 
@@ -319,6 +313,21 @@ void Renderer::setUpDirLightsPipeline(const RendererConfig& config) {
                 ply::Shader::Pixel,
                 ply::ShaderResourceType::Mutable
             ) // Camera
+            .addVariable(
+                "Shadows",
+                ply::Shader::Pixel,
+                ply::ShaderResourceType::Mutable
+            ) // Shadow
+            .addVariable(
+                "g_shadowMap",
+                ply::Shader::Pixel,
+                ply::ShaderResourceType::Mutable
+            ) // Shadow map
+            .addSampler(
+                "g_shadowMap",
+                ply::Shader::Pixel,
+                TextureFilter::Point
+            ) // Shadow map sampler
             .create();
 
     m_dirLightPipeline
@@ -350,11 +359,6 @@ void Renderer::setUpDirLightsPipeline(const RendererConfig& config) {
 
 ///////////////////////////////////////////////////////////
 void Renderer::setUpLightVolumePipeline(const RendererConfig& config) {
-    // Check if glsl should be used
-    const auto& deviceInfo =
-        m_device->getImpl()->m_renderDevice->GetDeviceInfo();
-    bool useGlsl = deviceInfo.IsVulkanDevice() || deviceInfo.IsMetalDevice();
-
     // Shaders
     m_lightVolumeShaderV =
         m_device->shader()
@@ -365,9 +369,13 @@ void Renderer::setUpLightVolumePipeline(const RendererConfig& config) {
     m_lightVolumeShaderP =
         m_device->shader()
             .name("Light volume pixel shader")
-            .language(useGlsl ? Shader::Language::Glsl : Shader::Language::Hlsl)
+            .language(
+                m_usingGlsl ? Shader::Language::Glsl : Shader::Language::Hlsl
+            )
             .type(Shader::Pixel)
-            .file(useGlsl ? "light_volume_glsl.psh" : "light_volume_hlsl.psh")
+            .file(
+                m_usingGlsl ? "light_volume_glsl.psh" : "light_volume_hlsl.psh"
+            )
             .addMacro("MAX_NUM_MATERIALS", config.maxMaterials)
             .load();
 
@@ -507,20 +515,72 @@ void Renderer::createPointLightBuffers(uint32_t maxPointLights) {
 }
 
 ///////////////////////////////////////////////////////////
+void Renderer::setUpShadows() {
+    // Create shadow map
+    m_shadowMap = m_device->framebuffer();
+    m_shadowMap.attachDepth(Vector2u(1024), TextureFormat::D32f);
+
+    // Set up shadow map visualization
+    m_shadowVisShaderV =
+        m_device->shader()
+            .name("Shadow map visualization vertex shader")
+            .type(Shader::Vertex)
+            .file("shadow_vis.vsh")
+            .load();
+    m_shadowVisShaderP =
+        m_device->shader()
+            .name("Shadow map visualization pixel shader")
+            .type(Shader::Pixel)
+            .file("shadow_vis.psh")
+            .load();
+
+    m_shadowVisPipeline =
+        m_device->pipeline()
+            .name("Shadow map visualization pipeline")
+            .shader(&m_shadowVisShaderV)
+            .shader(&m_shadowVisShaderP)
+            .topology(PrimitiveTopology::TriangleStrip)
+            .cull(CullMode::None)
+            .depth(false)
+            .addVariable(
+                "g_shadowMap",
+                Shader::Pixel,
+                ShaderResourceType::Mutable
+            ) // Shadow map
+            .addSampler(
+                "g_shadowMap",
+                Shader::Pixel
+            ) // Shadow map sampler
+            .create();
+
+    m_shadowVisBinding = m_shadowVisPipeline.createResourceBinding();
+    m_shadowVisBinding.setVariable(
+        Shader::Pixel,
+        "g_shadowMap",
+        *m_shadowMap.getDepthTexture()
+    );
+}
+
+///////////////////////////////////////////////////////////
 void Renderer::initialize(RenderDevice* device, const RendererConfig& config) {
     m_device = device;
+
+    // Check if glsl should be used
+    const auto& deviceInfo =
+        m_device->getImpl()->m_renderDevice->GetDeviceInfo();
+    m_usingGlsl = deviceInfo.IsVulkanDevice() || deviceInfo.IsMetalDevice();
 
     // Create material array
     m_materials = HandleArray<Material>(config.maxMaterials);
 
     uint32_t align = device->getConstantBufferAlignment();
+    m_bufferBlockSizes.camera = (sizeof(CB_Camera) + align - 1) / align * align;
 
     // Set up render pass
     createRenderPass(config.targetFormat);
 
     // Allocate camera buffer
-    uint32_t size =
-        (CAMERA_BUFFER_SIZE * sizeof(CB_Camera) + align - 1) / align * align;
+    uint32_t size = m_bufferBlockSizes.camera;
     m_cameraBuffer =
         device->buffer()
             .name("Camera buffer")
@@ -564,10 +624,16 @@ void Renderer::initialize(RenderDevice* device, const RendererConfig& config) {
             .size(size * config.buffer.animBufferSize)
             .create();
 
-    // Check if glsl should be used
-    const auto& deviceInfo = device->getImpl()->m_renderDevice->GetDeviceInfo();
-    const auto useGlsl =
-        deviceInfo.IsVulkanDevice() || deviceInfo.IsMetalDevice();
+    // Allocate shadow buffer
+    size = (sizeof(CS_Shadow) + align - 1) / align * align;
+    m_shadowBuffer =
+        device->buffer()
+            .name("Shadow buffer")
+            .access(ResourceAccess::Write)
+            .bind(ResourceBind::UniformBuffer)
+            .usage(ResourceUsage::Dynamic)
+            .size(size)
+            .create();
 
     // Deferred lighting pipeline
     m_quadShader =
@@ -579,10 +645,11 @@ void Renderer::initialize(RenderDevice* device, const RendererConfig& config) {
     m_ambientShader =
         device->shader()
             .name("Ambient light shader")
-            .language(useGlsl ? Shader::Language::Glsl : Shader::Language::Hlsl)
+            .language(
+                m_usingGlsl ? Shader::Language::Glsl : Shader::Language::Hlsl
+            )
             .type(Shader::Pixel)
-            .file(useGlsl ? "ambient_glsl.psh" : "ambient_hlsl.psh")
-            .addMacro("MAX_NUM_DIR_LIGHTS", MAX_NUM_DIR_LIGHTS)
+            .file(m_usingGlsl ? "ambient_glsl.psh" : "ambient_hlsl.psh")
             .addMacro("MAX_NUM_MATERIALS", config.maxMaterials)
             .load();
 
@@ -628,6 +695,9 @@ void Renderer::initialize(RenderDevice* device, const RendererConfig& config) {
     m_ambientPipeline
         .setStaticVariable(Shader::Pixel, "Materials", m_materialBuffer);
 
+    // Set up shadows
+    setUpShadows();
+
     // Directional light pipeline
     setUpDirLightsPipeline(config);
 
@@ -656,7 +726,8 @@ void Renderer::add(RenderSystem* system) {
     system->m_renderer = this;
 
     ContextConstantBuffers buffers({m_cameraBuffer, m_lightsBuffer});
-    RenderSystem::Init data{m_device, buffers, m_renderPass};
+    RenderSystem::Init
+        data{m_device, buffers, m_bufferBlockSizes, m_renderPass, m_shadowMap};
     system->initialize(data);
 }
 
@@ -692,6 +763,7 @@ void Renderer::update(float dt) {
     m_cameraBuffer.discard();
     m_lightsBuffer.discard();
     m_materialBuffer.discard();
+    m_shadowBuffer.discard();
 
     // Update all render systems
     for (RenderSystem* system : m_systems) {
@@ -703,7 +775,10 @@ void Renderer::update(float dt) {
         CB_Lights lightsBlock;
         lightsBlock.m_ambient = Vector3f(0.1f);
 
-        m_lightsBuffer.push(lightsBlock);
+        m_lightsBuffer.push(
+            lightsBlock,
+            m_device->getConstantBufferAlignment()
+        );
     }
 
     // Update material buffer
@@ -808,8 +883,32 @@ void Renderer::updatePointLights() {
 
 ///////////////////////////////////////////////////////////
 void Renderer::render(Camera& camera, Framebuffer& target) {
+    // TEMP : Shadow camera
+    Camera shadowCamera;
+    shadowCamera.setPosition(Vector3f{-1.0f, 10.0f, 0.0f});
+    shadowCamera.setDirection(Vector3f{0.1f, -1.0f, 0.0f});
+    shadowCamera.setOrthographic(-1.5f, 1.5f, -1.5f, 1.5f, 0.1f, 100.0f);
+
+    CS_Shadow shadowBlock;
+    shadowBlock.m_lightProjView =
+        shadowCamera.getProjMatrix() * shadowCamera.getViewMatrix();
+    shadowBlock.m_shadowMapSize = m_shadowMap.getSize().x;
+    if (m_usingGlsl) {
+        shadowBlock.m_lightProjView = transpose(shadowBlock.m_lightProjView);
+    }
+    m_shadowBuffer.push(shadowBlock, m_device->getConstantBufferAlignment());
+
+    // Render shadow pass
+    doRenderPass(shadowCamera, m_shadowMap, RenderPass::Shadow);
+
     // Render standard pass
     doRenderPass(camera, target, RenderPass::Default);
+
+    auto& context = m_device->context;
+    context.setRenderTarget(target);
+    context.setPipeline(m_shadowVisPipeline);
+    context.setResourceBinding(m_shadowVisBinding);
+    context.draw(4);
 }
 
 ///////////////////////////////////////////////////////////
@@ -822,9 +921,8 @@ void Renderer::doRenderPass(
     auto deviceContext = device->m_deviceContext;
 
     // Create render context
-    ContextConstantBuffers buffers({m_cameraBuffer, m_lightsBuffer});
-    ContextBufferOffsets offsets({0});
-    RenderPassContext context(camera, pass, buffers, offsets);
+    ContextBufferOffsets offsets({m_cameraBuffer.offset()});
+    RenderPassContext context(camera, pass, offsets);
     context.isDeferredPass = true;
 
     // Update camera buffer
@@ -832,9 +930,11 @@ void Renderer::doRenderPass(
 
     CB_Camera cameraBlock;
     cameraBlock.m_projView = projView;
-    cameraBlock.m_invProjView =
-        glm::transpose(inverse(projView)); // idfk why i have to transpose it
+    cameraBlock.m_invProjView = inverse(projView);
     cameraBlock.m_cameraPos = camera.getPosition();
+    if (m_usingGlsl) {
+        cameraBlock.m_invProjView = transpose(cameraBlock.m_invProjView);
+    }
 
     // Get viewport size
     if (&target == &Framebuffer::Default) {
@@ -857,10 +957,25 @@ void Renderer::doRenderPass(
     }
 
     // Push data
-    context.offsets.camera = m_cameraBuffer.push(cameraBlock);
+    context.offsets.camera = m_cameraBuffer.push(
+        cameraBlock,
+        m_device->getConstantBufferAlignment()
+    );
 
     // Shadow pass only renders once
     if (pass == RenderPass::Shadow) {
+        // TEMP : Transition shadow map
+        StateTransitionDesc transitions[1];
+        transitions[0].pResource =
+            TEXTURE(m_shadowMap.getDepthTexture()->getResource());
+        transitions[0].OldState = RESOURCE_STATE_UNKNOWN;
+        transitions[0].NewState = RESOURCE_STATE_DEPTH_WRITE;
+        transitions[0].Flags = STATE_TRANSITION_FLAG_UPDATE_STATE;
+        deviceContext->TransitionResourceStates(1, &transitions[0]);
+
+        m_device->context.setRenderTarget(target);
+        m_device->context.clear(ClearFlags::Depth);
+
         // Invoke all render systems
         for (RenderSystem* system : m_systems) {
             system->render(context);
@@ -879,6 +994,15 @@ void Renderer::doRenderPass(
             );
         }
     }
+
+    // TEMP : Transition shadow map
+    StateTransitionDesc transitions[1];
+    transitions[0].pResource =
+        TEXTURE(m_shadowMap.getDepthTexture()->getResource());
+    transitions[0].OldState = RESOURCE_STATE_UNKNOWN;
+    transitions[0].NewState = RESOURCE_STATE_DEPTH_READ;
+    transitions[0].Flags = STATE_TRANSITION_FLAG_UPDATE_STATE;
+    deviceContext->TransitionResourceStates(1, &transitions[0]);
 
     // Start render pass
     auto& gbuffer = getGBuffer(target);
@@ -923,10 +1047,20 @@ ResourceBinding createDeferredResourceBinding(
     const priv::GBuffer& gbuffer
 ) {
     ResourceBinding binding = pipeline.createResourceBinding();
-    binding.set(Shader::Pixel, "sp_colorTexture", gbuffer.m_colorTexture);
-    binding.set(Shader::Pixel, "sp_depthTexture", gbuffer.m_depthZTexture);
-    binding.set(Shader::Pixel, "sp_normalTexture", gbuffer.m_normalTexture);
-    binding.set(Shader::Pixel, "sp_materialTexture", gbuffer.m_materialTexture);
+    binding
+        .setVariable(Shader::Pixel, "sp_colorTexture", gbuffer.m_colorTexture);
+    binding
+        .setVariable(Shader::Pixel, "sp_depthTexture", gbuffer.m_depthZTexture);
+    binding.setVariable(
+        Shader::Pixel,
+        "sp_normalTexture",
+        gbuffer.m_normalTexture
+    );
+    binding.setVariable(
+        Shader::Pixel,
+        "sp_materialTexture",
+        gbuffer.m_materialTexture
+    );
     return binding;
 }
 
@@ -1126,12 +1260,46 @@ priv::GBuffer& Renderer::getGBuffer(Framebuffer& target) {
             createDeferredResourceBinding(m_lightVolumePipeline, gbuffer);
 
         // Set variables
-        gbuffer.m_ambientBinding.set(Shader::Pixel, "Camera", m_cameraBuffer);
-        gbuffer.m_dirLightBinding.set(Shader::Pixel, "Camera", m_cameraBuffer);
-        gbuffer.m_lightVolumeBinding
-            .set(Shader::Vertex, "Camera", m_cameraBuffer);
-        gbuffer.m_lightVolumeBinding
-            .set(Shader::Pixel, "Camera", m_cameraBuffer);
+        gbuffer.m_ambientBinding.setVariable(
+            Shader::Pixel,
+            "Camera",
+            m_cameraBuffer,
+            0,
+            sizeof(CB_Camera)
+        );
+        gbuffer.m_dirLightBinding.setVariable(
+            Shader::Pixel,
+            "Camera",
+            m_cameraBuffer,
+            0,
+            sizeof(CB_Camera)
+        );
+        gbuffer.m_dirLightBinding.setVariable(
+            Shader::Pixel,
+            "Shadows",
+            m_shadowBuffer,
+            0,
+            sizeof(CS_Shadow)
+        );
+        gbuffer.m_dirLightBinding.setVariable(
+            Shader::Pixel,
+            "g_shadowMap",
+            *m_shadowMap.getDepthTexture()
+        );
+        gbuffer.m_lightVolumeBinding.setVariable(
+            Shader::Vertex,
+            "Camera",
+            m_cameraBuffer,
+            0,
+            sizeof(CB_Camera)
+        );
+        gbuffer.m_lightVolumeBinding.setVariable(
+            Shader::Pixel,
+            "Camera",
+            m_cameraBuffer,
+            0,
+            sizeof(CB_Camera)
+        );
 
         // Add to map
         it = m_impl->m_gBuffers.insert_or_assign(&target, std::move(gbuffer))
@@ -1198,7 +1366,7 @@ void Renderer::applyLighting(
 
     // Ambient shading pass
     gbuffer.m_ambientBinding
-        .setOffset(Shader::Pixel, "Camera", context.offsets.camera);
+        .setDynamicOffset(Shader::Pixel, "Camera", context.offsets.camera);
 
     deviceContext.setPipeline(m_ambientPipeline);
     deviceContext.setResourceBinding(gbuffer.m_ambientBinding);
@@ -1207,7 +1375,7 @@ void Renderer::applyLighting(
     // Directional lights
     if (m_numDirLights > 0) {
         gbuffer.m_dirLightBinding
-            .setOffset(Shader::Pixel, "Camera", context.offsets.camera);
+            .setDynamicOffset(Shader::Pixel, "Camera", context.offsets.camera);
 
         deviceContext.setPipeline(m_dirLightPipeline);
         deviceContext.setResourceBinding(gbuffer.m_dirLightBinding);
@@ -1218,9 +1386,9 @@ void Renderer::applyLighting(
     // Point lights
     if (m_numPointLights > 0) {
         gbuffer.m_lightVolumeBinding
-            .setOffset(Shader::Vertex, "Camera", context.offsets.camera);
+            .setDynamicOffset(Shader::Vertex, "Camera", context.offsets.camera);
         gbuffer.m_lightVolumeBinding
-            .setOffset(Shader::Pixel, "Camera", context.offsets.camera);
+            .setDynamicOffset(Shader::Pixel, "Camera", context.offsets.camera);
 
         deviceContext.setPipeline(m_lightVolumePipeline);
         deviceContext.setResourceBinding(gbuffer.m_lightVolumeBinding);

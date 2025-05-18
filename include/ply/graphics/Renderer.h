@@ -9,6 +9,7 @@
 #include <ply/graphics/Material.h>
 #include <ply/graphics/Pipeline.h>
 #include <ply/graphics/RenderPass.h>
+#include <ply/graphics/RenderSystem.h>
 #include <ply/graphics/Shader.h>
 
 #include <vector>
@@ -16,7 +17,6 @@
 namespace ply {
 
 struct RenderPassContext;
-class RenderSystem;
 class World;
 
 namespace priv {
@@ -162,7 +162,7 @@ public:
     ///
     ///////////////////////////////////////////////////////////
     Handle registerMaterial(const Material& material);
-    
+
     ///////////////////////////////////////////////////////////
     /// \brief Remove a material
     /// \param handle Handle to the material
@@ -195,6 +195,8 @@ private:
 
     void createPointLightBuffers(uint32_t maxPointLights);
 
+    void setUpShadows();
+
     ///////////////////////////////////////////////////////////
     /// \brief Perform a render pass
     ///////////////////////////////////////////////////////////
@@ -217,23 +219,28 @@ private:
     std::unique_ptr<priv::RendererImpl>
         m_impl;         //!< Pointer to renderer implementation members
     Vector3f m_ambient; //!< Ambient color
+    ContextBufferBlockSizes m_bufferBlockSizes; //!< Buffer block sizes
 
-    std::vector<Framebuffer*>
-        m_shadowMaps; //!< Shadow maps, one for each cascade level
     std::vector<RenderSystem*> m_systems; //!< A list of render systems
     HandleArray<Material> m_materials;    //!< A list of materials
 
     RenderPass m_renderPass; //!< Render pass wrapper
+    bool m_usingGlsl;       //!< Whether we are using GLSL
 
-    Pipeline m_ambientPipeline; //!< Pipeline used for deferred ambient rendering
-    Shader m_quadShader;         //!< Shader used to render quad
-    Shader m_ambientShader;     //!< Shader used to render ambient lighting
+    Pipeline m_shadowPipeline; //!< Pipeline used for shadow mapping
+    Shader m_shadowShaderV;    //!< Shader used for shadow mapping (vertex)
+    Framebuffer m_shadowMap;   //!< Shadow map framebuffer
+
+    Pipeline
+        m_ambientPipeline;  //!< Pipeline used for deferred ambient rendering
+    Shader m_quadShader;    //!< Shader used to render quad
+    Shader m_ambientShader; //!< Shader used to render ambient lighting
 
     Pipeline m_dirLightPipeline; //!< Pipeline used for directional lights
-    Shader m_dirLightShaderV;    //!< Shader used for directional lights (vertex)
-    Shader m_dirLightShaderP;    //!< Shader used for directional lights (pixel)
-    Buffer m_dirLightInstance;    //!< Instance buffer used for directional lights
-    uint32_t m_numDirLights;      //!< Number of directional lights
+    Shader m_dirLightShaderV;  //!< Shader used for directional lights (vertex)
+    Shader m_dirLightShaderP;  //!< Shader used for directional lights (pixel)
+    Buffer m_dirLightInstance; //!< Instance buffer used for directional lights
+    uint32_t m_numDirLights;   //!< Number of directional lights
 
     Pipeline m_lightVolumePipeline; //!< Pipeline used for light volumes
     Shader m_lightVolumeShaderV;    //!< Shader used for light volumes (vertex)
@@ -242,6 +249,11 @@ private:
     Buffer m_pointLightIndex;       //!< Index buffer used for point lights
     Buffer m_pointLightInstance;    //!< Instance buffer used for point lights
     uint32_t m_numPointLights;      //!< Number of point lights
+
+    Pipeline m_shadowVisPipeline; //!< Pipeline used for shadow map visualization
+    ResourceBinding m_shadowVisBinding; //!< Resource binding used for shadow map visualization
+    Shader m_shadowVisShaderV;    //!< Shader used for shadow map visualization (vertex)
+    Shader m_shadowVisShaderP;    //!< Shader used for shadow map visualization (pixel)
 
     Buffer m_cameraBuffer;    //!< Buffer used to store camera uniforms
     Buffer m_lightsBuffer;    //!< Buffer used to store dynamic light uniforms

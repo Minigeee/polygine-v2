@@ -84,7 +84,7 @@ public:
     /// Dynamic resources can be set multiple times.
     ///
     ///////////////////////////////////////////////////////////
-    void set(Shader::Type stages, const char* name, const Buffer& resource);
+    void setVariable(Shader::Type stages, const char* name, const Buffer& resource, uint32_t offset = 0, uint32_t size = 0);
 
     ///////////////////////////////////////////////////////////
     /// \brief Set a mutable or dynamic texture variable for a shader stage.
@@ -95,16 +95,16 @@ public:
     /// Dynamic resources can be set multiple times.
     ///
     ///////////////////////////////////////////////////////////
-    void set(Shader::Type stages, const char* name, const Texture& resource);
+    void setVariable(Shader::Type stages, const char* name, const Texture& resource);
     
     ///////////////////////////////////////////////////////////
-    /// \brief Set the buffer offset for a buffer variable.
+    /// \brief Set the dynamic buffer offset for a buffer variable.
     /// \param stages Shader stages to which the variable belongs.
     /// \param name Name of the variable.
     /// \param offset Offset in bytes to set for the buffer variable (in bytes)
     ///
     ///////////////////////////////////////////////////////////
-    void setOffset(
+    void setDynamicOffset(
         Shader::Type stages,
         const char* name,
         uint32_t offset
@@ -200,11 +200,11 @@ public:
     PipelineBuilder& name(const char* name);
 
     ///////////////////////////////////////////////////////////
-    /// \brief Set the framebuffer target format for the pipeline.
+    /// \brief Set the framebuffer target formats for the pipeline.
     /// \param target The framebuffer to use as the render target.
     ///
     ///////////////////////////////////////////////////////////
-    PipelineBuilder& targetFormat(const Framebuffer& target);
+    PipelineBuilder& targetFormatsFrom(const Framebuffer& target);
 
     ///////////////////////////////////////////////////////////
     /// \brief Set the framebuffer render pass target for the pipeline.

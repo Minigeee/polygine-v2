@@ -23,12 +23,12 @@ namespace priv {
 /// \brief Clear flags
 ///
 ///////////////////////////////////////////////////////////
-enum class ClearFlag : uint8_t {
+enum class ClearFlags : uint8_t {
     Color = 1 << 0,
     Depth = 1 << 1,
     Stencil = 1 << 2
 };
-BIT_OPERATOR(ClearFlag);
+BIT_OPERATOR(ClearFlags);
 
 ///////////////////////////////////////////////////////////
 /// \brief Class for interfacing with render device context
@@ -50,7 +50,7 @@ public:
     /// \param flags The clear flags
     ///
     /////////////////////////////////////////////////////////////
-    void clear(ClearFlag flags);
+    void clear(ClearFlags flags);
 
     /////////////////////////////////////////////////////////////
     /// \brief Set clear color

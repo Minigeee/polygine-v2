@@ -9,6 +9,7 @@
 namespace ply {
 
 class Renderer;
+class Framebuffer;
 
 namespace priv {
     struct RenderSystemImpl;
@@ -35,6 +36,14 @@ struct ContextBufferOffsets {
 };
 
 ///////////////////////////////////////////////////////////
+/// \brief Contains the size of constant buffer blocks in bytes
+///
+///////////////////////////////////////////////////////////
+struct ContextBufferBlockSizes {
+    uint32_t camera; //!< Camera block size
+};
+
+///////////////////////////////////////////////////////////
 /// \brief Used to pass shared render data to each system
 ///
 ///////////////////////////////////////////////////////////
@@ -42,13 +51,11 @@ struct RenderPassContext {
     RenderPassContext(
         Camera& camera,
         RenderPass::Type pass,
-        ContextConstantBuffers buffers,
         ContextBufferOffsets offsets
     );
 
     Camera& camera;                 //!< Camera being used to render scene
     RenderPass::Type pass;          //!< Current render pass
-    ContextConstantBuffers buffers; //!< List of shared constant buffers
     ContextBufferOffsets offsets;   //!< List of shared constant buffer offsets
     bool isDeferredPass; //!< Is the current pass a deferred lighting pass
                          //!< (can't render transparent)
@@ -69,7 +76,9 @@ public:
     struct Init {
         RenderDevice* device;           //!< Render device to use for rendering
         ContextConstantBuffers buffers; //!< Shared constant buffers
+        ContextBufferBlockSizes sizes;  //!< Shared constant buffer sizes
         RenderPass& renderPass;         //!< Render pass to use for rendering
+        Framebuffer& shadowMap;         //!< Shadow map used for rendering
     };
 
 public:

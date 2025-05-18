@@ -10,12 +10,10 @@ namespace ply {
 RenderPassContext::RenderPassContext(
     Camera& camera,
     RenderPass::Type pass,
-    ContextConstantBuffers buffers,
     ContextBufferOffsets offsets
 ) :
     camera(camera),
     pass(pass),
-    buffers(buffers),
     isDeferredPass(true),
     offsets(offsets) {}
 

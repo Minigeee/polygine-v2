@@ -215,7 +215,7 @@ RenderContext::RenderContext() :
     m_currentFramebuffer(nullptr) {}
 
 ///////////////////////////////////////////////////////////
-void RenderContext::clear(ClearFlag flags) {
+void RenderContext::clear(ClearFlags flags) {
     CHECK_F(
         m_currentFramebuffer != nullptr,
         "must set a valid framebuffer before clearing "
@@ -224,7 +224,7 @@ void RenderContext::clear(ClearFlag flags) {
 
     bool isDefaultFramebuffer = m_currentFramebuffer == &Framebuffer::Default;
 
-    if ((bool)(flags & ClearFlag::Color)) {
+    if ((bool)(flags & ClearFlags::Color)) {
         if (isDefaultFramebuffer) {
             auto* pRTV = m_device->m_swapChain->GetCurrentBackBufferRTV();
             m_device->m_deviceContext->ClearRenderTarget(
@@ -249,7 +249,7 @@ void RenderContext::clear(ClearFlag flags) {
         }
     }
 
-    auto dsMask = ClearFlag::Depth | ClearFlag::Stencil;
+    auto dsMask = ClearFlags::Depth | ClearFlags::Stencil;
     if ((bool)(flags & dsMask)) {
         auto dsFlags = (uint8_t)dsMask >> 1;
 
